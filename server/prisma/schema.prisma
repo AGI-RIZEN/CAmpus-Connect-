@@ -1,0 +1,444 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled connection — used by the app at runtime
+  directUrl = env("DIRECT_URL") // unpooled connection — used only by `prisma migrate`
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  Student
+  Teacher
+  Admin
+}
+
+enum UserStatus {
+  PendingApproval
+  Active
+  Rejected
+  Banned
+}
+
+enum NoticeCategory {
+  Urgent
+  Exam
+  Event
+  General
+}
+
+enum PostStatus {
+  Pending
+  Approved
+  Rejected
+}
+
+enum ReportReason {
+  Spam
+  Inappropriate
+  Harassment
+  Other
+}
+
+enum ReportStatus {
+  Open
+  Dismissed
+  ActionTaken
+}
+
+enum QuizVisibility {
+  students
+  private
+}
+
+enum AssetResourceType {
+  image
+  raw
+  video
+}
+
+// ---------------------------------------------------------------------------
+// Core: User & Asset
+// ---------------------------------------------------------------------------
+
+model User {
+  id              String     @id @default(cuid())
+  email           String     @unique
+  passwordHash    String
+  fullName        String
+  role            Role       @default(Student)
+  status          UserStatus @default(PendingApproval)
+  course          String?
+  semester        Int?
+  department      String? // for Teacher/Admin
+  isEmailVerified Boolean    @default(false)
+  points          Int        @default(0)
+
+  agreedToTermsAt DateTime? // when they checked the Terms and Conditions box at signup
+  expoPushToken   String? // for sending real push notifications (e.g. new notices)
+
+  avatarAssetId String?
+  avatarAsset   Asset?  @relation("UserAvatar", fields: [avatarAssetId], references: [id])
+
+  rejectedReason String? // admin's typed reason when rejecting a pending signup
+  bannedReason   String? // admin's typed reason when banning this user
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  uploadedAssets    Asset[]           @relation("AssetUploadedBy")
+  authoredNotices   Notice[]          @relation("NoticeAuthor")
+  noticeReads       NoticeRead[]
+  notifications     Notification[]
+  posts             Post[]
+  likes             Like[]
+  savedPosts        SavedPost[]
+  comments          Comment[]
+  commentLikes      CommentLike[]
+  reportsFiled      Report[]          @relation("ReportFiledBy")
+  createdGroupChats GroupChat[]       @relation("GroupChatCreator")
+  groupMemberships  GroupMembership[]
+  messages          Message[]
+  createdPolls      Poll[]
+  pollVotes         PollVote[]
+  authoredQuizzes   Quiz[]            @relation("QuizAuthor")
+  quizAttempts      QuizAttempt[]
+
+  @@index([status])
+  @@index([course, semester])
+}
+
+model Asset {
+  id                 String            @id @default(cuid())
+  cloudinaryPublicId String            @unique
+  secureUrl          String
+  resourceType       AssetResourceType
+  format             String?
+  bytes              Int
+  width              Int?
+  height             Int?
+
+  uploadedById String
+  uploadedBy   User   @relation("AssetUploadedBy", fields: [uploadedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  avatarOfUsers     User[]      @relation("UserAvatar")
+  postImages        PostImage[]
+  noticeAttachments Notice[]    @relation("NoticeAttachment")
+  groupChatIcons    GroupChat[] @relation("GroupChatIcon")
+  messages          Message[]
+
+  @@index([uploadedById])
+}
+
+// ---------------------------------------------------------------------------
+// Notices & Notifications
+// ---------------------------------------------------------------------------
+
+model Notice {
+  id       String         @id @default(cuid())
+  title    String
+  preview  String
+  body     String
+  category NoticeCategory
+  pinned   Boolean        @default(false)
+
+  authorId String
+  author   User   @relation("NoticeAuthor", fields: [authorId], references: [id])
+
+  targetCourse   String? // null = all courses
+  targetSemester Int? // null = all semesters
+
+  attachmentAssetId String?
+  attachmentAsset   Asset?  @relation("NoticeAttachment", fields: [attachmentAssetId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  reads NoticeRead[]
+
+  @@index([category])
+  @@index([targetCourse, targetSemester])
+}
+
+model NoticeRead {
+  userId   String
+  noticeId String
+  readAt   DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notice Notice @relation(fields: [noticeId], references: [id], onDelete: Cascade)
+
+  @@id([userId, noticeId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // e.g. "like" | "comment" | "notice" | "quiz_result" | "message" | "account_approved" | "account_rejected" | "account_banned"
+  title     String
+  body      String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+}
+
+// ---------------------------------------------------------------------------
+// Posts, Likes, Comments, Reports
+// ---------------------------------------------------------------------------
+
+model Post {
+  id             String     @id @default(cuid())
+  authorId       String
+  author         User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  caption        String
+  status         PostStatus @default(Pending)
+  rejectedReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  images   PostImage[]
+  likes    Like[]
+  savedBy  SavedPost[]
+  comments Comment[]
+  reports  Report[]
+
+  @@index([status])
+  @@index([authorId])
+}
+
+model PostImage {
+  id       String @id @default(cuid())
+  postId   String
+  post     Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  assetId  String
+  asset    Asset  @relation(fields: [assetId], references: [id])
+  position Int    @default(0)
+
+  @@index([postId])
+}
+
+model Like {
+  userId    String
+  postId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([userId, postId])
+}
+
+model SavedPost {
+  userId    String
+  postId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([userId, postId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  text      String
+  createdAt DateTime @default(now())
+
+  likes CommentLike[]
+
+  @@index([postId])
+}
+
+model CommentLike {
+  userId    String
+  commentId String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([userId, commentId])
+}
+
+model Report {
+  id           String       @id @default(cuid())
+  postId       String
+  post         Post         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  reportedById String
+  reportedBy   User         @relation("ReportFiledBy", fields: [reportedById], references: [id], onDelete: Cascade)
+  reason       ReportReason
+  details      String? // free text, mainly used when reason = Other
+  status       ReportStatus @default(Open)
+  createdAt    DateTime     @default(now())
+  resolvedAt   DateTime?
+
+  @@index([status])
+  @@index([postId])
+}
+
+// ---------------------------------------------------------------------------
+// Chat: GroupChat, GroupMembership, Message, Poll, PollOption, PollVote
+// ---------------------------------------------------------------------------
+
+model GroupChat {
+  id          String  @id @default(cuid())
+  name        String
+  isCommunity Boolean @default(false) // the single campus-wide community chat vs. created groups
+
+  iconAssetId String?
+  iconAsset   Asset?  @relation("GroupChatIcon", fields: [iconAssetId], references: [id])
+
+  createdById String
+  createdBy   User   @relation("GroupChatCreator", fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  memberships GroupMembership[]
+  messages    Message[]
+}
+
+model GroupMembership {
+  userId      String
+  groupChatId String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  groupChat   GroupChat @relation(fields: [groupChatId], references: [id], onDelete: Cascade)
+  isAdmin     Boolean   @default(false)
+  joinedAt    DateTime  @default(now())
+  lastReadAt  DateTime?
+
+  @@id([userId, groupChatId])
+}
+
+model Message {
+  id          String    @id @default(cuid())
+  groupChatId String
+  groupChat   GroupChat @relation(fields: [groupChatId], references: [id], onDelete: Cascade)
+  senderId    String
+  sender      User      @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  text    String?
+  assetId String?
+  asset   Asset?  @relation(fields: [assetId], references: [id])
+
+  pollId String? @unique
+  poll   Poll?   @relation(fields: [pollId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([groupChatId, createdAt])
+}
+
+model Poll {
+  id          String   @id @default(cuid())
+  question    String
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  closesAt    DateTime?
+  createdAt   DateTime @default(now())
+
+  options PollOption[]
+  votes   PollVote[]
+  message Message?
+}
+
+model PollOption {
+  id     String @id @default(cuid())
+  pollId String
+  poll   Poll   @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  label  String
+
+  votes PollVote[]
+}
+
+model PollVote {
+  userId       String
+  pollId       String
+  pollOptionId String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  poll         Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  pollOption   PollOption @relation(fields: [pollOptionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@id([userId, pollId]) // one vote per user per poll
+}
+
+// ---------------------------------------------------------------------------
+// Quizzes: Quiz, QuizQuestion, QuizAttempt, QuizAnswer
+// ---------------------------------------------------------------------------
+
+model Quiz {
+  id                String         @id @default(cuid())
+  title             String
+  subject           String
+  course            String
+  semester          Int
+  authorId          String
+  author            User           @relation("QuizAuthor", fields: [authorId], references: [id])
+  timeLimitMinutes  Int
+  pointsPerQuestion Int
+  visibility        QuizVisibility @default(students)
+  startAt           DateTime
+  endAt             DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  questions QuizQuestion[]
+  attempts  QuizAttempt[]
+
+  @@index([course, semester])
+  @@index([authorId])
+}
+
+model QuizQuestion {
+  id           String   @id @default(cuid())
+  quizId       String
+  quiz         Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  text         String
+  options      String[] // exactly 4 options, enforced at the application layer
+  correctIndex Int
+  explanation  String?
+  position     Int      @default(0)
+
+  answers QuizAnswer[]
+
+  @@index([quizId])
+}
+
+model QuizAttempt {
+  id          String    @id @default(cuid())
+  quizId      String
+  quiz        Quiz      @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startedAt   DateTime  @default(now())
+  submittedAt DateTime?
+  score       Int?
+
+  answers QuizAnswer[]
+
+  @@unique([quizId, userId]) // one attempt per student per quiz
+}
+
+model QuizAnswer {
+  id            String       @id @default(cuid())
+  attemptId     String
+  attempt       QuizAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId    String
+  question      QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  selectedIndex Int?
+  isCorrect     Boolean?
+
+  @@unique([attemptId, questionId])
+}
