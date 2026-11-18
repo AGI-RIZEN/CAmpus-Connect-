@@ -14,7 +14,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://laptop-uafon0na.tail1ba0df.ts.net/api"
+        "EXPO_PUBLIC_API_URL": "https://campus-connect-production-25d5bbfc.up.railway.app/api"
       }
     },
     "production": {
