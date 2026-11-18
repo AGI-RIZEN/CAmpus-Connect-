@@ -2,8 +2,11 @@ import React, { useState } from 'react';
 import { Modal, Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Minus, Plus, X } from 'lucide-react-native';
+import { KeyboardAvoidingView } from '@/components/ui/KeyboardSafe';
+import { AnimatedPressable } from '@/components/ui/AnimatedPressable';
 import { IconButton } from '@/components/ui/IconButton';
 import { PrimaryButton } from '@/components/ui/Button';
+import { Reveal } from '@/components/ui/Reveal';
 import { Caption, H2 } from '@/components/ui/Text';
 import { colors, softShadowLg } from '@/lib/theme';
 import { haptic } from '@/lib/haptics';
@@ -60,10 +63,11 @@ export function PollCreateSheet({ visible, onClose, onSubmit }: Props) {
 
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={handleClose}>
-      <Pressable className="flex-1 bg-black/40" onPress={handleClose} />
-      <View
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+      <Pressable className="flex-1 bg-black/40 justify-end" onPress={handleClose}>
+      <Pressable
         style={[softShadowLg, { paddingBottom: insets.bottom + 20 }]}
-        className="absolute bottom-0 left-0 right-0 bg-white dark:bg-surface-dark rounded-t-[32px] px-5 pt-5"
+        className="bg-white dark:bg-surface-dark rounded-t-[32px] px-5 pt-5"
       >
         <View className="flex-row items-center justify-between mb-4">
           <View style={{ width: 36 }} />
@@ -85,8 +89,10 @@ export function PollCreateSheet({ visible, onClose, onSubmit }: Props) {
         </View>
 
         <Caption className="mb-2">Options</Caption>
+        {/* Rows are keyed by index, so the initial pair cascades in with the sheet and each
+            newly-added option springs in at the bottom; existing rows are left untouched. */}
         {options.map((opt, i) => (
-          <View key={i} className="flex-row items-center mb-2.5">
+          <Reveal key={i} index={i} spring className="flex-row items-center mb-2.5">
             <View className="flex-1 rounded-input bg-background dark:bg-background-dark border border-border-light dark:border-border-dark px-4">
               <TextInput
                 placeholder={`Option ${i + 1}`}
@@ -97,27 +103,35 @@ export function PollCreateSheet({ visible, onClose, onSubmit }: Props) {
               />
             </View>
             {options.length > MIN_OPTIONS && (
-              <Pressable
-                onPress={() => removeOption(i)}
-                className="w-9 h-9 rounded-full items-center justify-center ml-2 bg-danger/15"
-              >
-                <Minus size={16} color={colors.danger} />
-              </Pressable>
+              <Reveal spring scaleIn step={0}>
+                {/* removeOption already fires haptic.select, so haptics stay off here. */}
+                <AnimatedPressable
+                  onPress={() => removeOption(i)}
+                  scaleTo={0.86}
+                  haptics="none"
+                  className="w-9 h-9 rounded-full items-center justify-center ml-2 bg-danger/15"
+                >
+                  <Minus size={16} color={colors.danger} />
+                </AnimatedPressable>
+              </Reveal>
             )}
-          </View>
+          </Reveal>
         ))}
 
         {options.length < MAX_OPTIONS && (
-          <Pressable onPress={addOption} className="flex-row items-center mb-5 mt-1">
+          // addOption already fires haptic.tap, so haptics stay off here.
+          <AnimatedPressable onPress={addOption} scaleTo={0.97} haptics="none" className="flex-row items-center mb-5 mt-1">
             <View className="w-7 h-7 rounded-full items-center justify-center bg-card-lavender dark:bg-card-lavender-dark mr-2">
               <Plus size={14} color={colors.primary} />
             </View>
             <Caption className="text-primary font-poppins-semibold">Add option</Caption>
-          </Pressable>
+          </AnimatedPressable>
         )}
 
         <PrimaryButton label="Create Poll" onPress={handleSubmit} disabled={!canSubmit} className="mt-2" />
-      </View>
+      </Pressable>
+      </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

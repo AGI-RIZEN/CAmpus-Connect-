@@ -1,6 +1,7 @@
 import React from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import { TextInput, View } from 'react-native';
 import { BarChart2, Image as ImageIcon, Send } from 'lucide-react-native';
+import { AnimatedPressable } from '@/components/ui/AnimatedPressable';
 import { colors } from '@/lib/theme';
 
 type Props = {
@@ -15,12 +16,22 @@ type Props = {
 export function Composer({ draft, onChangeDraft, onSend, onPickImage, onOpenPoll, sending }: Props) {
   return (
     <View className="flex-row items-center">
-      <Pressable className="w-10 h-10 items-center justify-center mr-1" onPress={onOpenPoll}>
+      <AnimatedPressable
+        scaleTo={0.86}
+        haptics="select"
+        className="w-10 h-10 items-center justify-center mr-1"
+        onPress={onOpenPoll}
+      >
         <BarChart2 size={22} color={colors.textSecondary} />
-      </Pressable>
-      <Pressable className="w-10 h-10 items-center justify-center mr-1" onPress={onPickImage}>
+      </AnimatedPressable>
+      <AnimatedPressable
+        scaleTo={0.86}
+        haptics="select"
+        className="w-10 h-10 items-center justify-center mr-1"
+        onPress={onPickImage}
+      >
         <ImageIcon size={22} color={colors.textSecondary} />
-      </Pressable>
+      </AnimatedPressable>
       <View className="flex-1 flex-row items-center bg-white dark:bg-surface-dark rounded-full px-4 border border-border-light dark:border-border-dark">
         <TextInput
           value={draft}
@@ -31,13 +42,18 @@ export function Composer({ draft, onChangeDraft, onSend, onPickImage, onOpenPoll
           multiline
         />
       </View>
-      <Pressable
+      {/* Screens already fire haptic.tap() inside their onSend, so haptics stay off here to
+          avoid a double buzz; `lift` gives the primary-tinted glow bloom on release. */}
+      <AnimatedPressable
         onPress={onSend}
         disabled={sending}
+        lift
+        scaleTo={0.9}
+        haptics="none"
         className={`w-11 h-11 rounded-full bg-primary items-center justify-center ml-2 ${sending ? 'opacity-50' : ''}`}
       >
         <Send size={18} color="#fff" />
-      </Pressable>
+      </AnimatedPressable>
     </View>
   );
 }

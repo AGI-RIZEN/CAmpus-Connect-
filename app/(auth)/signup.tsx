@@ -10,6 +10,9 @@ import { Input } from '@/components/ui/Input';
 import { Chip } from '@/components/ui/Chip';
 import { PrimaryButton } from '@/components/ui/Button';
 import { AnimatedPressable } from '@/components/ui/AnimatedPressable';
+import { Reveal } from '@/components/ui/Reveal';
+import { GradientBlob } from '@/components/ui/GradientBlob';
+import { Drift } from '@/components/ui/Drift';
 import { useToast } from '@/components/ui/Toast';
 import { courses, semesters } from '@/lib/mock-data';
 import { colors } from '@/lib/theme';
@@ -17,7 +20,7 @@ import { signup } from '@/lib/api/auth';
 import { ApiRequestError } from '@/lib/api/client';
 import { uploadAvatarForSignup } from '@/lib/api/uploads';
 
-type Role = 'Student' | 'Teacher';
+type Role = 'Student' | 'Teacher' | 'Alumni';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HERO_HEIGHT = SCREEN_HEIGHT * 0.3;
@@ -38,13 +41,14 @@ export default function Signup() {
   const [course, setCourse] = useState('');
   const [semester, setSemester] = useState<number | null>(null);
   const [role, setRole] = useState<Role>('Student');
+  const [signupCode, setSignupCode] = useState('');
   const [agreed, setAgreed] = useState(false);
   const [courseOpen, setCourseOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [photoAsset, setPhotoAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const toast = useToast();
 
-  const canSubmit = !!(name && email && password && course && semester && agreed) && !submitting;
+  const canSubmit = !!(name && email && password && course && semester && signupCode.trim() && agreed) && !submitting;
 
   const goBack = () => (router.canGoBack() ? router.back() : router.replace('/(auth)/login'));
 
@@ -77,6 +81,7 @@ export default function Signup() {
         semester,
         role,
         agreedToTerms: agreed,
+        signupCode: signupCode.trim(),
       });
 
       // Photo is optional — never let an upload hiccup block account creation itself.
@@ -100,7 +105,10 @@ export default function Signup() {
 
   return (
     <SafeAreaView className="flex-1 bg-ink">
-      <View className="px-screen" style={{ height: HERO_HEIGHT }}>
+      {/* `overflow: hidden` keeps the ambient blobs clipped to the dark hero band. */}
+      <View className="px-screen" style={{ height: HERO_HEIGHT, position: 'relative', overflow: 'hidden' }}>
+        <GradientBlob />
+
         <AnimatedPressable
           haptics="tap"
           onPress={goBack}
@@ -109,20 +117,34 @@ export default function Signup() {
           <ChevronLeft size={22} color="#fff" />
         </AnimatedPressable>
 
-        {/* Decorative "join campus" badge, distinct from Login's floating-avatar motif */}
-        <View
-          style={{ position: 'absolute', top: 10, right: 24, width: 68, height: 68, borderRadius: 34 }}
-          className="bg-card-mint items-center justify-center"
-        >
-          <GraduationCap size={30} color={colors.ink} />
-        </View>
-        <View style={{ position: 'absolute', top: 86, right: 90, width: 10, height: 10, borderRadius: 5 }} className="bg-card-butter" />
-        <View style={{ position: 'absolute', top: 18, right: 100, width: 8, height: 8, borderRadius: 4 }} className="bg-primary opacity-60" />
-        <View style={{ position: 'absolute', top: 110, right: 50, width: 7, height: 7, borderRadius: 3.5 }} className="bg-card-sky" />
+        {/* Decorative "join campus" badge, distinct from Login's floating-avatar motif. Reveal owns
+            the absolute positioning so the spring transform doesn't fight the layout. */}
+        <Reveal index={0} spring scaleIn style={{ position: 'absolute', top: 10, right: 24 }}>
+          <Drift range={10} duration={4800}>
+            <View style={{ width: 68, height: 68, borderRadius: 34 }} className="bg-card-mint items-center justify-center">
+              <GraduationCap size={30} color={colors.ink} />
+            </View>
+          </Drift>
+        </Reveal>
+        <Reveal index={1} spring scaleIn style={{ position: 'absolute', top: 86, right: 90 }}>
+          <Drift range={7} duration={5600}>
+            <View style={{ width: 10, height: 10, borderRadius: 5 }} className="bg-card-butter" />
+          </Drift>
+        </Reveal>
+        <Reveal index={2} spring scaleIn style={{ position: 'absolute', top: 18, right: 100 }}>
+          <Drift range={8} duration={4300}>
+            <View style={{ width: 8, height: 8, borderRadius: 4 }} className="bg-primary opacity-60" />
+          </Drift>
+        </Reveal>
+        <Reveal index={3} spring scaleIn style={{ position: 'absolute', top: 110, right: 50 }}>
+          <Drift range={6} duration={5100}>
+            <View style={{ width: 7, height: 7, borderRadius: 3.5 }} className="bg-card-sky" />
+          </Drift>
+        </Reveal>
 
-        <View className="flex-1 justify-end pb-8">
+        <Reveal index={1} className="flex-1 justify-end pb-8">
           <Display className="text-white">Create your{'\n'}campus account</Display>
-        </View>
+        </Reveal>
       </View>
 
       {/* `KeyboardAwareScrollView` is a third-party component, not one NativeWind patches to
@@ -131,7 +153,7 @@ export default function Signup() {
       <View className="flex-1 bg-white dark:bg-surface-dark rounded-t-[32px] -mt-8">
         <KeyboardAwareScrollView style={{ flex: 1 }} bottomOffset={20} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <View className="px-screen pt-8 pb-10">
-            <View className="items-center mb-6">
+            <Reveal index={2} spring scaleIn className="items-center mb-6">
               <AnimatedPressable haptics="tap" onPress={pickPhoto} scaleTo={0.96}>
                 <View
                   className="w-24 h-24 rounded-full bg-card-lavender dark:bg-card-lavender-dark items-center justify-center overflow-hidden border-2 border-white dark:border-surface-dark"
@@ -148,8 +170,9 @@ export default function Signup() {
                 </View>
               </AnimatedPressable>
               <Caption className="mt-2">{photoAsset ? 'Tap to change photo' : 'Add a profile photo (optional)'}</Caption>
-            </View>
+            </Reveal>
 
+            <Reveal index={3}>
             <SectionLabel>Basic info</SectionLabel>
             <Input
               label="Full name"
@@ -177,9 +200,11 @@ export default function Signup() {
               value={password}
               onChangeText={setPassword}
             />
+            </Reveal>
 
             <View className="h-px bg-border-light dark:bg-border-dark my-6" />
 
+            <Reveal index={4}>
             <SectionLabel>Academic details</SectionLabel>
             <Caption className="mb-2">Course</Caption>
             <AnimatedPressable
@@ -199,9 +224,11 @@ export default function Signup() {
                 <Chip key={s} label={String(s)} active={semester === s} onPress={() => setSemester(s)} className="mb-2" />
               ))}
             </View>
+            </Reveal>
 
             <View className="h-px bg-border-light dark:bg-border-dark my-6" />
 
+            <Reveal index={5}>
             <SectionLabel>Role & agreement</SectionLabel>
             <Caption className="mb-2">I am a</Caption>
             <View className="flex-row self-start bg-background dark:bg-background-dark border border-border-light dark:border-border-dark rounded-full p-1 mb-5">
@@ -221,7 +248,28 @@ export default function Signup() {
               >
                 <BodyMedium className={role === 'Teacher' ? 'text-white' : ''}>Teacher</BodyMedium>
               </AnimatedPressable>
+              <AnimatedPressable
+                haptics="select"
+                scaleTo={0.96}
+                onPress={() => setRole('Alumni')}
+                className={`px-6 py-2 rounded-full ${role === 'Alumni' ? 'bg-ink' : ''}`}
+              >
+                <BodyMedium className={role === 'Alumni' ? 'text-white' : ''}>Alumni</BodyMedium>
+              </AnimatedPressable>
             </View>
+
+            <Input
+              label="Signup Code"
+              placeholder="e.g. 7F3K-9QXZ"
+              autoCapitalize="characters"
+              value={signupCode}
+              onChangeText={setSignupCode}
+              className="mb-2"
+            />
+            <Caption className="mb-5 text-text-secondary dark:text-text-secondary-dark">
+              Get this from your college office or alumni coordinator — it confirms you&apos;re
+              really a {role.toLowerCase()} here, so your account skips manual review.
+            </Caption>
 
             <AnimatedPressable
               haptics="select"
@@ -248,6 +296,7 @@ export default function Signup() {
               label={submitting ? 'Creating account…' : 'Create Account'}
               disabled={!canSubmit}
               onPress={handleCreateAccount}
+              shine
             />
 
             <View className="flex-row justify-center mt-6">
@@ -256,6 +305,7 @@ export default function Signup() {
                 <BodyMedium className="text-primary">Log In</BodyMedium>
               </Pressable>
             </View>
+            </Reveal>
           </View>
         </KeyboardAwareScrollView>
       </View>

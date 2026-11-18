@@ -34,31 +34,47 @@ function publicUser(user: User & { avatarAsset?: Asset | null }) {
     isEmailVerified: user.isEmailVerified,
     avatarUrl: user.avatarAsset?.secureUrl ?? null,
     points: user.points,
+    currentStreak: user.currentStreak,
     agreedToTermsAt: user.agreedToTermsAt,
+    bannedReason: user.bannedReason,
+    rejectedReason: user.rejectedReason,
   };
 }
 
-/** Best-effort — a failure here should never block signup itself. */
-async function notifyAdminsOfNewSignup(user: {
-  fullName: string;
-  role: string;
-  course: string | null;
-  semester: number | null;
-}) {
-  try {
-    const admins = await prisma.user.findMany({ where: { role: 'Admin' }, select: { id: true } });
-    if (admins.length === 0) return;
-    await prisma.notification.createMany({
-      data: admins.map((admin) => ({
-        userId: admin.id,
-        type: 'user_applied',
-        title: 'New account application',
-        body: `${user.fullName} (${user.role}) applied — ${user.course}, Sem ${user.semester}`,
-      })),
+function startOfDayMs(d: Date): number {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+/**
+ * Touches the daily streak at most once per calendar day. Same day as the last touch: no-op
+ * (so hammering /auth/me/status — it fires on every app launch — never double-counts one day).
+ * Exactly one calendar day later: streak+1. Any bigger gap, or no prior activity at all: reset
+ * to 1. Returns just the two touched fields, merged back onto the caller's already-fetched user
+ * (which has `avatarAsset` included) rather than replacing it — `prisma.user.update()`'s own
+ * return value wouldn't carry that relation, which would otherwise make `avatarUrl` go null.
+ */
+async function touchStreak(user: User): Promise<Pick<User, 'currentStreak' | 'lastActiveAt'>> {
+  const now = new Date();
+
+  if (!user.lastActiveAt) {
+    return prisma.user.update({
+      where: { id: user.id },
+      data: { currentStreak: 1, lastActiveAt: now },
+      select: { currentStreak: true, lastActiveAt: true },
     });
-  } catch (err) {
-    console.error('[notifications] failed to notify admins of new signup (non-fatal):', (err as Error).message);
   }
+
+  const dayDiff = Math.round((startOfDayMs(now) - startOfDayMs(user.lastActiveAt)) / 86_400_000);
+  if (dayDiff === 0) {
+    return { currentStreak: user.currentStreak, lastActiveAt: user.lastActiveAt };
+  }
+
+  const nextStreak = dayDiff === 1 ? user.currentStreak + 1 : 1;
+  return prisma.user.update({
+    where: { id: user.id },
+    data: { currentStreak: nextStreak, lastActiveAt: now },
+    select: { currentStreak: true, lastActiveAt: true },
+  });
 }
 
 /** Always logs the OTP (so signup/testing works with zero email setup), then best-effort emails it. */
@@ -77,8 +93,9 @@ export async function signup(input: {
   password: string;
   course: string;
   semester: number;
-  role: 'Student' | 'Teacher';
+  role: 'Student' | 'Teacher' | 'Alumni';
   agreedToTerms: boolean;
+  signupCode: string;
 }) {
   const email = normalizeEmail(input.email);
   const existing = await prisma.user.findUnique({ where: { email } });
@@ -93,23 +110,53 @@ export async function signup(input: {
     throw new ApiError(400, 'You must agree to the Terms and Conditions');
   }
 
+  const normalizedCode = input.signupCode.trim().toUpperCase();
   const passwordHash = await bcrypt.hash(input.password, 10);
-  const user = await prisma.user.create({
-    data: {
-      fullName: input.fullName,
-      email,
-      passwordHash,
-      course: input.course,
-      semester: input.semester,
-      role: input.role,
-      agreedToTermsAt: new Date(),
-    },
+
+  // Validates + redeems the signup code and creates the account in one DB transaction. The
+  // redemption itself uses a conditional `updateMany` (not a plain `update`) keyed on
+  // `usedByUserId: null` rather than trusting the row we just read a moment earlier — if its
+  // `count` comes back 0, someone else redeemed this exact code in that gap, and throwing here
+  // rolls back the whole transaction, including the user row this same call already created.
+  // A valid, unused code *is* the verification — signups no longer sit in a manual-approval
+  // queue, they go straight to Active.
+  const user = await prisma.$transaction(async (tx) => {
+    const signupCode = await tx.signupCode.findUnique({ where: { code: normalizedCode } });
+    if (!signupCode) throw new ApiError(400, 'Invalid signup code');
+    if (signupCode.role !== input.role) {
+      throw new ApiError(400, `This code is for ${signupCode.role} signups, not ${input.role}`);
+    }
+    if (signupCode.usedByUserId) throw new ApiError(400, 'This signup code has already been used');
+
+    const created = await tx.user.create({
+      data: {
+        fullName: input.fullName,
+        email,
+        passwordHash,
+        course: input.course,
+        semester: input.semester,
+        role: input.role,
+        status: 'Active',
+        agreedToTermsAt: new Date(),
+      },
+    });
+
+    const redeemed = await tx.signupCode.updateMany({
+      where: { id: signupCode.id, usedByUserId: null },
+      data: { usedByUserId: created.id, usedAt: new Date() },
+    });
+    if (redeemed.count !== 1) {
+      throw new ApiError(400, 'This signup code has already been used');
+    }
+
+    return created;
   });
 
-  const code = generateOtp();
-  await setOtp(user.id, code);
-  await deliverOtp(user, code);
-  await notifyAdminsOfNewSignup(user);
+  const otpCode = generateOtp();
+  await setOtp(user.id, otpCode);
+  await deliverOtp(user, otpCode);
+  // No admin-signup notification here anymore — a valid code already proves affiliation, so
+  // there's nothing left for an admin to review/approve for this account.
 
   // Scoped, short-lived token proving "this client is the one that just created this account" —
   // the only thing that's allowed to attach a profile photo before the account has a real
@@ -160,7 +207,7 @@ export async function login(rawEmail: string, password: string) {
   if (!valid) throw new ApiError(401, 'Invalid email or password');
 
   if (user.status === 'Banned') {
-    throw new ApiError(403, user.bannedReason ? `Account banned: ${user.bannedReason}` : 'Your account has been banned');
+    throw new ApiError(403, `Account banned: ${user.bannedReason ?? 'No reason given'}`);
   }
   if (user.status === 'Rejected') {
     throw new ApiError(
@@ -176,7 +223,8 @@ export async function login(rawEmail: string, password: string) {
 export async function getStatus(userId: string) {
   const user = await prisma.user.findUnique({ where: { id: userId }, ...withAvatar });
   if (!user) throw new ApiError(404, 'Account not found');
-  return publicUser(user);
+  const streak = await touchStreak(user);
+  return publicUser({ ...user, ...streak });
 }
 
 export async function refresh(refreshToken: string) {

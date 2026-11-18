@@ -380,3 +380,80 @@ export async function getDashboardStats(filters: DashboardFilters = {}) {
     topPosts,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Signup codes
+// ---------------------------------------------------------------------------
+
+// Excludes 0/O/1/I/L — an admin may read these out loud or write them on paper; ambiguous
+// characters are exactly the ones that turn into a support request.
+const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+function randomCode(): string {
+  let code = '';
+  for (let i = 0; i < 8; i++) {
+    code += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
+    if (i === 3) code += '-'; // e.g. "7F3K-9QXZ", easier to read/transcribe than 8 straight chars
+  }
+  return code;
+}
+
+function publicSignupCode(c: {
+  id: string;
+  code: string;
+  role: Role;
+  note: string | null;
+  usedByUserId: string | null;
+  usedAt: Date | null;
+  createdAt: Date;
+  usedBy?: { fullName: string } | null;
+}) {
+  return {
+    id: c.id,
+    code: c.code,
+    role: c.role,
+    note: c.note,
+    used: !!c.usedByUserId,
+    usedByName: c.usedBy?.fullName ?? null,
+    usedAt: c.usedAt,
+    createdAt: c.createdAt,
+  };
+}
+
+export async function generateSignupCodes(generatedById: string, params: { role: Role; count: number; note?: string }) {
+  // Collision odds on an 8-char, 32-symbol alphabet are astronomically small, but a unique
+  // constraint exists either way — retry just the individual collision rather than the whole
+  // batch, so one in-a-billion clash never fails an admin's entire generate request.
+  const created: Awaited<ReturnType<typeof prisma.signupCode.create>>[] = [];
+  for (let i = 0; i < params.count; i++) {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        const row = await prisma.signupCode.create({
+          data: { code: randomCode(), role: params.role, note: params.note, generatedById },
+        });
+        created.push(row);
+        break;
+      } catch (err) {
+        if (attempt === 4) throw err;
+      }
+    }
+  }
+  return created.map(publicSignupCode);
+}
+
+export async function listSignupCodes(params: { role?: Role; used?: boolean }) {
+  const where: Record<string, unknown> = {};
+  if (params.role) where.role = params.role;
+  if (params.used !== undefined) {
+    where.usedByUserId = params.used ? { not: null } : null;
+  }
+
+  const codes = await prisma.signupCode.findMany({
+    where,
+    include: { usedBy: { select: { fullName: true } } },
+    orderBy: { createdAt: 'desc' },
+    take: 500,
+  });
+
+  return codes.map(publicSignupCode);
+}

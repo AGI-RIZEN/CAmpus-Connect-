@@ -8,6 +8,9 @@ import { Display, Body, BodyMedium } from '@/components/ui/Text';
 import { Input } from '@/components/ui/Input';
 import { PrimaryButton, TextLinkButton } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
+import { Reveal } from '@/components/ui/Reveal';
+import { GradientBlob } from '@/components/ui/GradientBlob';
+import { Drift } from '@/components/ui/Drift';
 import { useToast } from '@/components/ui/Toast';
 import { avatar } from '@/lib/mock-data';
 import { colors } from '@/lib/theme';
@@ -51,35 +54,57 @@ export default function Login() {
 
   return (
     <SafeAreaView className="flex-1 bg-ink">
-      <View className="px-screen" style={{ height: TOP_HEIGHT }}>
-        {/* Floating 3D student avatars */}
-        <View
-          style={{ position: 'absolute', top: 8, left: 20, width: 64, height: 64, borderRadius: 32 }}
-          className="bg-card-lavender items-center justify-center"
-        >
-          <Avatar uri={avatar('login-a')} size={48} ring />
-        </View>
-        <View
-          style={{ position: 'absolute', top: 54, right: 28, width: 72, height: 72, borderRadius: 36 }}
-          className="bg-card-peach items-center justify-center"
-        >
-          <Avatar uri={avatar('login-b')} size={54} ring />
-        </View>
-        <View
-          style={{ position: 'absolute', top: 128, left: 64, width: 52, height: 52, borderRadius: 26 }}
-          className="bg-card-sky items-center justify-center"
-        >
-          <Avatar uri={avatar('login-c')} size={40} ring />
-        </View>
+      {/* `overflow: hidden` keeps the ambient blobs clipped to the dark hero band. */}
+      <View className="px-screen" style={{ height: TOP_HEIGHT, position: 'relative', overflow: 'hidden' }}>
+        <GradientBlob />
+
+        {/* Floating 3D student avatars — each springs in with a slight stagger, then drifts
+            gently forever after. Reveal owns the absolute positioning + one-time entrance;
+            Drift (nested inside) adds the ongoing ambient motion so the hero doesn't go static
+            once the entrance finishes — each gets a different duration so they don't move in
+            lockstep. */}
+        <Reveal index={0} spring scaleIn style={{ position: 'absolute', top: 8, left: 20 }}>
+          <Drift range={10} duration={4200}>
+            <View style={{ width: 64, height: 64, borderRadius: 32 }} className="bg-card-lavender items-center justify-center">
+              <Avatar uri={avatar('login-a')} size={48} ring />
+            </View>
+          </Drift>
+        </Reveal>
+        <Reveal index={1} spring scaleIn style={{ position: 'absolute', top: 54, right: 28 }}>
+          <Drift range={12} duration={5000}>
+            <View style={{ width: 72, height: 72, borderRadius: 36 }} className="bg-card-peach items-center justify-center">
+              <Avatar uri={avatar('login-b')} size={54} ring />
+            </View>
+          </Drift>
+        </Reveal>
+        <Reveal index={2} spring scaleIn style={{ position: 'absolute', top: 128, left: 64 }}>
+          <Drift range={9} duration={5800}>
+            <View style={{ width: 52, height: 52, borderRadius: 26 }} className="bg-card-sky items-center justify-center">
+              <Avatar uri={avatar('login-c')} size={40} ring />
+            </View>
+          </Drift>
+        </Reveal>
 
         {/* Small colored dot accents */}
-        <View style={{ position: 'absolute', top: 20, right: 90, width: 10, height: 10, borderRadius: 5 }} className="bg-card-mint" />
-        <View style={{ position: 'absolute', top: 100, left: 16, width: 8, height: 8, borderRadius: 4 }} className="bg-card-butter" />
-        <View style={{ position: 'absolute', top: 160, right: 44, width: 12, height: 12, borderRadius: 6 }} className="bg-primary opacity-60" />
+        <Reveal index={3} spring scaleIn style={{ position: 'absolute', top: 20, right: 90 }}>
+          <Drift range={8} duration={4600}>
+            <View style={{ width: 10, height: 10, borderRadius: 5 }} className="bg-card-mint" />
+          </Drift>
+        </Reveal>
+        <Reveal index={4} spring scaleIn style={{ position: 'absolute', top: 100, left: 16 }}>
+          <Drift range={7} duration={5400}>
+            <View style={{ width: 8, height: 8, borderRadius: 4 }} className="bg-card-butter" />
+          </Drift>
+        </Reveal>
+        <Reveal index={5} spring scaleIn style={{ position: 'absolute', top: 160, right: 44 }}>
+          <Drift range={11} duration={6200}>
+            <View style={{ width: 12, height: 12, borderRadius: 6 }} className="bg-primary opacity-60" />
+          </Drift>
+        </Reveal>
 
-        <View className="flex-1 justify-end pb-10">
+        <Reveal index={2} className="flex-1 justify-end pb-10">
           <Display className="text-white">Welcome back{'\n'}to campus!</Display>
-        </View>
+        </Reveal>
       </View>
 
       {/* `KeyboardAwareScrollView` is a third-party component, not one NativeWind patches to
@@ -87,7 +112,7 @@ export default function Login() {
           this plain wrapping `View` instead, where `className` is guaranteed to work. */}
       <View className="flex-1 bg-white dark:bg-surface-dark rounded-t-[32px] -mt-8">
         <KeyboardAwareScrollView style={{ flex: 1 }} bottomOffset={20} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          <View className="px-screen pt-8 pb-10">
+          <Reveal index={4} className="px-screen pt-8 pb-10">
             <Input
               label="Email"
               placeholder="you@college.edu"
@@ -118,6 +143,7 @@ export default function Login() {
               label={loggingIn ? 'Logging in…' : 'Log In'}
               disabled={loggingIn}
               onPress={handleLogin}
+              shine
             />
 
             <View className="flex-row justify-center mt-6">
@@ -126,7 +152,7 @@ export default function Login() {
                 <BodyMedium className="text-primary">Sign Up</BodyMedium>
               </Pressable>
             </View>
-          </View>
+          </Reveal>
         </KeyboardAwareScrollView>
       </View>
     </SafeAreaView>

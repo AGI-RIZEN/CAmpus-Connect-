@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Heart, Send, Smile, X } from 'lucide-react-native';
+import { Send, Smile, X } from 'lucide-react-native';
+import { KeyboardAvoidingView } from '@/components/ui/KeyboardSafe';
 import { Avatar } from '@/components/ui/Avatar';
 import { IconButton } from '@/components/ui/IconButton';
 import { Reveal } from '@/components/ui/Reveal';
@@ -12,6 +13,7 @@ import { colors, softShadowLg } from '@/lib/theme';
 import { timeAgo } from '@/lib/time';
 import { listComments, addComment, toggleCommentLike, type Comment } from '@/lib/api/posts';
 import { ApiRequestError } from '@/lib/api/client';
+import { LikeHeart } from './LikeHeart';
 
 type Props = {
   visible: boolean;
@@ -73,10 +75,11 @@ export function CommentsSheet({ visible, onClose, postId, onCommentPosted }: Pro
 
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
-      <Pressable className="flex-1 bg-black/40" onPress={onClose} />
-      <View
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+      <Pressable className="flex-1 bg-black/40 justify-end" onPress={onClose}>
+      <Pressable
         style={[softShadowLg, { maxHeight: '78%', paddingBottom: insets.bottom + 12 }]}
-        className="absolute bottom-0 left-0 right-0 bg-white dark:bg-surface-dark rounded-t-[32px]"
+        className="bg-white dark:bg-surface-dark rounded-t-[32px]"
       >
         <View className="flex-row items-center justify-between px-5 pt-5 pb-3">
           <View style={{ width: 36 }} />
@@ -91,10 +94,12 @@ export function CommentsSheet({ visible, onClose, postId, onCommentPosted }: Pro
               <ActivityIndicator color={colors.primary} />
             </View>
           ) : items.length === 0 ? (
-            <Caption className="text-center py-6">No comments yet — be the first to say something.</Caption>
+            <Reveal spring>
+              <Caption className="text-center py-6">No comments yet — be the first to say something.</Caption>
+            </Reveal>
           ) : (
             items.map((c, i) => (
-              <Reveal key={c.id} index={i} step={45}>
+              <Reveal key={c.id} index={i} step={45} spring>
                 <View className="flex-row mb-4">
                   <Avatar uri={c.author.avatarUrl} name={c.author.fullName} size={36} />
                   <View className="flex-1 ml-3">
@@ -105,7 +110,7 @@ export function CommentsSheet({ visible, onClose, postId, onCommentPosted }: Pro
                     <Body className="mt-0.5">{c.text}</Body>
                     <View className="flex-row items-center mt-1.5">
                       <Pressable onPress={() => toggleCommentLikeLocal(c.id)} className="flex-row items-center mr-4">
-                        <Heart size={14} color={c.liked ? colors.danger : colors.textSecondary} fill={c.liked ? colors.danger : 'none'} />
+                        <LikeHeart liked={c.liked} size={14} />
                         <Caption className="ml-1">{c.likesCount}</Caption>
                       </Pressable>
                     </View>
@@ -137,7 +142,9 @@ export function CommentsSheet({ visible, onClose, postId, onCommentPosted }: Pro
             <Send size={16} color="#fff" />
           </Pressable>
         </View>
-      </View>
+      </Pressable>
+      </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

@@ -221,4 +221,19 @@ export async function remindStudent(noticeId: string, studentId: string) {
       body: `Please read: ${notice.title}`,
     },
   });
+
+  // A "remind" is specifically for someone who hasn't opened the app to see this notice yet —
+  // an in-app-only row does nothing for them until they open the app on their own. The actual
+  // point of this action is the real push, same as a brand-new notice gets.
+  if (student.expoPushToken) {
+    await sendExpoPushNotifications([
+      {
+        to: student.expoPushToken,
+        title: 'Reminder',
+        body: `Please read: ${notice.title}`,
+        data: { type: 'notice', noticeId: notice.id },
+        sound: 'default',
+      },
+    ]);
+  }
 }

@@ -28,14 +28,6 @@ export async function listUsers(
   return apiRequest(`/admin/users${query ? `?${query}` : ''}`, { auth: true });
 }
 
-export async function approveUser(id: string): Promise<AdminUser> {
-  return apiRequest(`/admin/users/${id}/approve`, { method: 'PATCH', auth: true });
-}
-
-export async function rejectUser(id: string, reason: string): Promise<AdminUser> {
-  return apiRequest(`/admin/users/${id}/reject`, { method: 'PATCH', body: { reason }, auth: true });
-}
-
 export async function banUser(id: string, reason: string): Promise<AdminUser> {
   return apiRequest(`/admin/users/${id}/ban`, { method: 'PATCH', body: { reason }, auth: true });
 }
@@ -83,4 +75,33 @@ export async function getDashboardStats(filters: DashboardStatsFilters = {}): Pr
   if (filters.dateRange) qs.set('dateRange', filters.dateRange);
   const query = qs.toString();
   return apiRequest(`/admin/stats${query ? `?${query}` : ''}`, { auth: true });
+}
+
+export type SignupCodeRole = 'Student' | 'Teacher' | 'Alumni';
+
+export type SignupCode = {
+  id: string;
+  code: string;
+  role: SignupCodeRole;
+  note: string | null;
+  used: boolean;
+  usedByName: string | null;
+  usedAt: string | null;
+  createdAt: string;
+};
+
+export async function generateSignupCodes(params: {
+  role: SignupCodeRole;
+  count: number;
+  note?: string;
+}): Promise<SignupCode[]> {
+  return apiRequest('/admin/signup-codes', { method: 'POST', body: params, auth: true });
+}
+
+export async function listSignupCodes(params: { role?: SignupCodeRole; used?: boolean } = {}): Promise<SignupCode[]> {
+  const qs = new URLSearchParams();
+  if (params.role) qs.set('role', params.role);
+  if (params.used !== undefined) qs.set('used', String(params.used));
+  const query = qs.toString();
+  return apiRequest(`/admin/signup-codes${query ? `?${query}` : ''}`, { auth: true });
 }

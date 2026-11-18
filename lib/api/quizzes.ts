@@ -80,6 +80,7 @@ export type QuizReviewItem = {
   correctIndex: number;
   selectedIndex: number | null;
   isCorrect: boolean;
+  pointsEarned: number;
   explanation: string | null;
 };
 
@@ -94,7 +95,7 @@ export type QuizResult = {
 
 export async function submitQuizAttempt(
   quizId: string,
-  answers: { questionId: string; selectedIndex: number | null }[]
+  answers: { questionId: string; selectedIndex: number | null; secondsRemaining?: number }[]
 ): Promise<QuizResult> {
   return apiRequest(`/quizzes/${quizId}/submit`, { method: 'POST', body: { answers }, auth: true });
 }

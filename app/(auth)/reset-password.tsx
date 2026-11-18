@@ -8,6 +8,7 @@ import { H1, Body, Caption } from '@/components/ui/Text';
 import { Input } from '@/components/ui/Input';
 import { PrimaryButton } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
+import { Reveal } from '@/components/ui/Reveal';
 import { Illustration } from '@/components/screens/auth/Illustration';
 import { colors } from '@/lib/theme';
 import { resetPassword } from '@/lib/api/auth';
@@ -52,13 +53,18 @@ export default function ResetPassword() {
       <Header title="Reset Password" />
 
       <View className="items-center mt-4 mb-8">
-        <Illustration emoji="🔒" tone="mint" size={140} />
-        <H1 className="mt-6 text-center">Set a new password</H1>
-        <Body className="mt-2 text-center text-text-secondary dark:text-text-secondary-dark">
-          Choose a strong password you haven&apos;t used before.
-        </Body>
+        <Reveal index={0} spring scaleIn>
+          <Illustration emoji="🔒" tone="mint" size={140} />
+        </Reveal>
+        <Reveal index={1} className="items-center">
+          <H1 className="mt-6 text-center">Set a new password</H1>
+          <Body className="mt-2 text-center text-text-secondary dark:text-text-secondary-dark">
+            Choose a strong password you haven&apos;t used before.
+          </Body>
+        </Reveal>
       </View>
 
+      <Reveal index={2}>
       <Input
         label="Reset code"
         placeholder="Paste the code from your email"
@@ -91,12 +97,15 @@ export default function ResetPassword() {
         error={mismatch ? 'Passwords do not match' : ''}
         className="mb-8"
       />
+      </Reveal>
 
-      <PrimaryButton
-        label={submitting ? 'Resetting…' : 'Reset Password'}
-        disabled={!canSubmit}
-        onPress={handleSubmit}
-      />
+      <Reveal index={3}>
+        <PrimaryButton
+          label={submitting ? 'Resetting…' : 'Reset Password'}
+          disabled={!canSubmit}
+          onPress={handleSubmit}
+        />
+      </Reveal>
     </Screen>
   );
 }

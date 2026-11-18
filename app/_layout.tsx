@@ -3,6 +3,7 @@ import React, { useEffect } from 'react';
 import { Platform } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
@@ -64,16 +65,24 @@ export default function RootLayout() {
 
   if (!fontsLoaded) return null;
 
+  const app = (
+    <SafeAreaProvider>
+      <AuthProvider>
+        <ToastProvider>
+          <StatusBar style="auto" />
+          <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }} />
+        </ToastProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
+  );
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <AuthProvider>
-          <ToastProvider>
-            <StatusBar style="auto" />
-            <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }} />
-          </ToastProvider>
-        </AuthProvider>
-      </SafeAreaProvider>
+      {/* react-native-keyboard-controller's KeyboardAvoidingView/useKeyboard* hooks (used
+       *  throughout via components/ui/KeyboardSafe.tsx) do nothing without this provider
+       *  mounted above them — it ships no web implementation, so skip it there (KeyboardSafe
+       *  already falls back to RN core's KeyboardAvoidingView on web). */}
+      {Platform.OS === 'web' ? app : <KeyboardProvider>{app}</KeyboardProvider>}
     </GestureHandlerRootView>
   );
 }

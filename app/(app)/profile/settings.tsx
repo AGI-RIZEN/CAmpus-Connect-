@@ -12,6 +12,7 @@ import { useToast } from '@/components/ui/Toast';
 import { haptic } from '@/lib/haptics';
 import { logout as apiLogout } from '@/lib/api/auth';
 import { useAuth } from '@/lib/auth-context';
+import { ChangePasswordSheet } from '@/components/screens/profile/ChangePasswordSheet';
 import {
   getNotificationsPreference,
   setNotificationsPreference,
@@ -64,6 +65,7 @@ function Row({
 export default function SettingsScreen() {
   const { colorScheme, setColorScheme } = useColorScheme();
   const [notifications, setNotifications] = useState(true);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const toast = useToast();
   const { setUser } = useAuth();
 
@@ -124,7 +126,7 @@ export default function SettingsScreen() {
           icon={<Lock size={20} color={colors.primary} />}
           label="Change Password"
           right={<ChevronRight size={20} color={colors.textSecondary} />}
-          onPress={() => toast('Password change flow coming soon', 'info')}
+          onPress={() => setChangePasswordOpen(true)}
         />
 
         <Row
@@ -149,6 +151,8 @@ export default function SettingsScreen() {
           />
         </View>
       </View>
+
+      <ChangePasswordSheet visible={changePasswordOpen} onClose={() => setChangePasswordOpen(false)} />
     </Screen>
   );
 }

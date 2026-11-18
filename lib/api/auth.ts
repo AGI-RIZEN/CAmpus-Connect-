@@ -1,7 +1,7 @@
 import { apiRequest } from './client';
 import { setTokens, clearTokens, getRefreshToken } from './token-storage';
 
-export type UserRole = 'Student' | 'Teacher' | 'Admin';
+export type UserRole = 'Student' | 'Teacher' | 'Admin' | 'Alumni';
 export type UserStatus = 'PendingApproval' | 'Active' | 'Rejected' | 'Banned';
 
 export type AuthUser = {
@@ -15,6 +15,9 @@ export type AuthUser = {
   isEmailVerified: boolean;
   avatarUrl: string | null;
   points: number;
+  currentStreak: number;
+  bannedReason?: string | null;
+  rejectedReason?: string | null;
 };
 
 type TokenPair = { accessToken: string; refreshToken: string };
@@ -25,8 +28,9 @@ export async function signup(input: {
   password: string;
   course: string;
   semester: number;
-  role: 'Student' | 'Teacher';
+  role: 'Student' | 'Teacher' | 'Alumni';
   agreedToTerms: boolean;
+  signupCode: string;
 }): Promise<{ userId: string; avatarUploadToken: string }> {
   return apiRequest('/auth/signup', { method: 'POST', body: input });
 }

@@ -4,7 +4,14 @@ import { requireAuth } from '../../middleware/auth';
 import { requireRole } from '../../middleware/roleGuard';
 import { asyncHandler } from '../../middleware/asyncHandler';
 import { validateBody, validateQuery } from '../../middleware/validate';
-import { listUsersQuerySchema, rejectUserSchema, banUserSchema, dashboardStatsQuerySchema } from './admin.schema';
+import {
+  listUsersQuerySchema,
+  rejectUserSchema,
+  banUserSchema,
+  dashboardStatsQuerySchema,
+  generateSignupCodesSchema,
+  listSignupCodesQuerySchema,
+} from './admin.schema';
 import * as adminService from './admin.service';
 
 export const adminRouter = Router();
@@ -70,5 +77,25 @@ adminRouter.get(
     const query = req.validatedQuery as z.infer<typeof dashboardStatsQuerySchema>;
     const stats = await adminService.getDashboardStats(query);
     res.json(stats);
+  })
+);
+
+adminRouter.post(
+  '/signup-codes',
+  validateBody(generateSignupCodesSchema),
+  asyncHandler(async (req, res) => {
+    const body = req.body as z.infer<typeof generateSignupCodesSchema>;
+    const codes = await adminService.generateSignupCodes(req.user!.id, body);
+    res.status(201).json(codes);
+  })
+);
+
+adminRouter.get(
+  '/signup-codes',
+  validateQuery(listSignupCodesQuerySchema),
+  asyncHandler(async (req, res) => {
+    const query = req.validatedQuery as z.infer<typeof listSignupCodesQuerySchema>;
+    const codes = await adminService.listSignupCodes(query);
+    res.json(codes);
   })
 );

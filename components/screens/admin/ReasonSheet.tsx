@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Modal, Pressable, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView } from '@/components/ui/KeyboardSafe';
 import { H2, Body } from '@/components/ui/Text';
 import { PrimaryButton, SecondaryButton } from '@/components/ui/Button';
 import { colors } from '@/lib/theme';
@@ -28,13 +29,19 @@ export function ReasonSheet({
 }: Props) {
   const [reason, setReason] = useState('');
 
+  // Server-side (rejectUserSchema/banUserSchema/moderationReasonSchema) all require min 3 chars —
+  // match it here so a too-short reason gets caught before a round trip, not after a 400.
+  const trimmedReason = reason.trim();
+  const reasonValid = trimmedReason.length >= 3;
+
   const handleSubmit = () => {
-    if (!reason.trim() || submitting) return;
-    onSubmit(reason.trim());
+    if (!reasonValid || submitting) return;
+    onSubmit(trimmedReason);
   };
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
       <Pressable className="flex-1 bg-black/40 justify-end" onPress={onClose}>
         <Pressable className="bg-white dark:bg-surface-dark rounded-t-[32px] px-screen pt-6 pb-10">
           <H2>{title}</H2>
@@ -72,12 +79,13 @@ export function ReasonSheet({
             <PrimaryButton
               label={submitting ? 'Submitting…' : 'Submit'}
               className="flex-1 justify-center"
-              disabled={!reason.trim() || submitting}
+              disabled={!reasonValid || submitting}
               onPress={handleSubmit}
             />
           </View>
         </Pressable>
       </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

@@ -10,13 +10,18 @@ type Props = Omit<PressableProps, 'style'> & {
   className?: string;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
+  /** One-time highlight sweep shortly after mount — for a CTA on a screen seen rarely
+   *  (login/signup/onboarding), not something to turn on for buttons seen repeatedly. */
+  shine?: boolean;
 };
 
 /** Dark pill, white label, circular arrow bubble on the right. The signature CTA. */
-export function PrimaryButton({ label, className = '', disabled, style, ...props }: Props) {
+export function PrimaryButton({ label, className = '', disabled, style, shine, ...props }: Props) {
   return (
     <AnimatedPressable
       disabled={disabled}
+      lift
+      shine={shine}
       style={[softShadow, style]}
       className={`flex-row items-center justify-between bg-ink rounded-full pl-6 pr-2 py-2 ${
         disabled ? 'opacity-40' : ''

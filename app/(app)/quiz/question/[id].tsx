@@ -39,7 +39,7 @@ export default function QuizQuestionScreen() {
   // the timer synchronously during render (React's recommended way to adjust state when a
   // value changes) instead of via a setState-in-effect, which would cascade an extra render.
   const [timedQuestionIndex, setTimedQuestionIndex] = useState(-1);
-  const answersRef = useRef<{ questionId: string; selectedIndex: number | null }[]>([]);
+  const answersRef = useRef<{ questionId: string; selectedIndex: number | null; secondsRemaining: number }[]>([]);
 
   // Tracks whether the "entering danger zone" haptic has already fired for this question,
   // so it buzzes exactly once per threshold crossing rather than on every re-render/tick.
@@ -115,7 +115,7 @@ export default function QuizQuestionScreen() {
 
   async function advance() {
     if (!attempt || !question) return;
-    answersRef.current.push({ questionId: question.id, selectedIndex: selectedOption });
+    answersRef.current.push({ questionId: question.id, selectedIndex: selectedOption, secondsRemaining });
 
     if (currentIndex + 1 >= totalQuestions) {
       setSubmitting(true);
@@ -169,7 +169,7 @@ export default function QuizQuestionScreen() {
             <Caption>
               Question {currentIndex + 1}/{totalQuestions}
             </Caption>
-            <Caption className="text-primary font-poppins-semibold">{attempt.pointsPerQuestion} pts</Caption>
+            <Caption className="text-primary font-poppins-semibold">Up to {attempt.pointsPerQuestion} pts — faster is worth more</Caption>
           </View>
           <View className="h-2 rounded-full bg-border-light dark:bg-border-dark overflow-hidden">
             <Animated.View style={progressBarStyle} className="h-2 rounded-full bg-primary" />

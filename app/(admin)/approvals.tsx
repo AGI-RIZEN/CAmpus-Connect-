@@ -18,14 +18,12 @@ import { useToast } from '@/components/ui/Toast';
 import { ReasonSheet } from '@/components/screens/admin/ReasonSheet';
 import { haptic } from '@/lib/haptics';
 import { timeAgo } from '@/lib/time';
-import * as adminApi from '@/lib/api/admin';
 import * as postsApi from '@/lib/api/posts';
 import { ApiRequestError } from '@/lib/api/client';
 
-type Tab = 'Users' | 'Posts' | 'Reports';
+type Tab = 'Posts' | 'Reports';
 
 type RejectTarget =
-  | { kind: 'user'; data: adminApi.AdminUser }
   | { kind: 'post'; data: postsApi.ModerationPost }
   | { kind: 'report'; data: postsApi.ReportedPost };
 
@@ -112,9 +110,7 @@ function useExitingIds() {
 }
 
 export default function ApprovalsScreen() {
-  const [tab, setTab] = useState<Tab>('Users');
-  const [users, setUsers] = useState<adminApi.AdminUser[]>([]);
-  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [tab, setTab] = useState<Tab>('Posts');
   const [posts, setPosts] = useState<postsApi.ModerationPost[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [reportList, setReportList] = useState<postsApi.ReportedPost[]>([]);
@@ -123,22 +119,8 @@ export default function ApprovalsScreen() {
   const [rejecting, setRejecting] = useState(false);
   const toast = useToast();
 
-  const userExit = useExitingIds();
   const postExit = useExitingIds();
   const reportExit = useExitingIds();
-
-  const loadPendingUsers = useCallback(async () => {
-    setLoadingUsers(true);
-    try {
-      const result = await adminApi.listUsers({ status: 'PendingApproval' });
-      setUsers(result);
-    } catch (err) {
-      const message = err instanceof ApiRequestError ? err.message : 'Could not load pending users';
-      toast(message, 'error');
-    } finally {
-      setLoadingUsers(false);
-    }
-  }, []);
 
   const loadPendingPosts = useCallback(async () => {
     setLoadingPosts(true);
@@ -167,39 +149,15 @@ export default function ApprovalsScreen() {
   }, []);
 
   useEffect(() => {
-    loadPendingUsers();
     loadPendingPosts();
     loadReports();
-  }, [loadPendingUsers, loadPendingPosts, loadReports]);
-
-  const approveUser = async (id: string, name: string) => {
-    try {
-      await adminApi.approveUser(id);
-      toast(`Approved ${name}`);
-      userExit.startExit(id, () => {
-        setUsers((list) => list.filter((x) => x.id !== id));
-        haptic.success();
-      });
-    } catch (err) {
-      const message = err instanceof ApiRequestError ? err.message : 'Could not approve user';
-      toast(message, 'error');
-    }
-  };
+  }, [loadPendingPosts, loadReports]);
 
   const submitReject = async (reason: string) => {
     if (!rejectTarget) return;
     setRejecting(true);
     try {
-      if (rejectTarget.kind === 'user') {
-        const user = rejectTarget.data;
-        await adminApi.rejectUser(user.id, reason);
-        toast(`Rejected ${user.fullName}`, 'error');
-        setRejectTarget(null);
-        userExit.startExit(user.id, () => {
-          setUsers((list) => list.filter((x) => x.id !== user.id));
-          haptic.warning();
-        });
-      } else if (rejectTarget.kind === 'post') {
+      if (rejectTarget.kind === 'post') {
         const post = rejectTarget.data;
         await postsApi.rejectPost(post.id, reason);
         toast(`Rejected post by ${post.author.fullName}`, 'error');
@@ -256,13 +214,6 @@ export default function ApprovalsScreen() {
 
   const reasonSheetProps = (() => {
     if (!rejectTarget) return null;
-    if (rejectTarget.kind === 'user') {
-      return {
-        title: `Reject ${rejectTarget.data.fullName}`,
-        description: "They'll get an email with the reason you enter below.",
-        quickReasons: ['Incomplete details', "Doesn't match college records", 'Duplicate account'],
-      };
-    }
     if (rejectTarget.kind === 'post') {
       return {
         title: `Reject post by ${rejectTarget.data.author.fullName}`,
@@ -282,58 +233,9 @@ export default function ApprovalsScreen() {
       <Header title="Approvals" />
 
       <View className="flex-row mb-5">
-        <Chip label="Users" active={tab === 'Users'} onPress={() => setTab('Users')} />
         <Chip label="Posts" active={tab === 'Posts'} onPress={() => setTab('Posts')} />
         <Chip label="Reports" active={tab === 'Reports'} onPress={() => setTab('Reports')} />
       </View>
-
-      {tab === 'Users' &&
-        (loadingUsers ? (
-          <>
-            <Skeleton height={110} radius={28} className="mb-3" />
-            <Skeleton height={110} radius={28} className="mb-3" />
-          </>
-        ) : users.length === 0 ? (
-          <EmptyState
-            icon={<ClipboardCheck size={32} color="#7C5CFA" />}
-            title="All caught up"
-            description="There are no pending user approvals right now."
-          />
-        ) : (
-          users.map((u, idx) => (
-            <Reveal key={u.id} index={idx}>
-              <ExitCard exiting={userExit.isExiting(u.id)} className="mb-3">
-                <Card tone="white">
-                  <View className="flex-row items-center mb-3.5">
-                    <Avatar uri={u.avatarUrl} name={u.fullName} size={48} />
-                    <View className="flex-1 ml-3">
-                      <BodyMedium>{u.fullName}</BodyMedium>
-                      <Caption className="mt-0.5">
-                        {u.course ?? '—'} · Semester {u.semester ?? '—'} · {u.role}
-                      </Caption>
-                      <Caption>{u.email}</Caption>
-                    </View>
-                  </View>
-                  <View className="flex-row">
-                    <ActionButton
-                      label="Approve"
-                      icon={<Check size={16} color="#fff" />}
-                      tone="success"
-                      className="mr-2"
-                      onPress={() => approveUser(u.id, u.fullName)}
-                    />
-                    <ActionButton
-                      label="Reject"
-                      icon={<X size={16} color="#fff" />}
-                      tone="danger"
-                      onPress={() => setRejectTarget({ kind: 'user', data: u })}
-                    />
-                  </View>
-                </Card>
-              </ExitCard>
-            </Reveal>
-          ))
-        ))}
 
       {tab === 'Posts' &&
         (loadingPosts ? (
@@ -343,7 +245,7 @@ export default function ApprovalsScreen() {
           </>
         ) : posts.length === 0 ? (
           <EmptyState
-            icon={<ClipboardCheck size={32} color="#7C5CFA" />}
+            icon={<ClipboardCheck size={32} color="#2F6FED" />}
             title="All caught up"
             description="There are no pending post approvals right now."
           />
@@ -394,7 +296,7 @@ export default function ApprovalsScreen() {
           </>
         ) : reportList.length === 0 ? (
           <EmptyState
-            icon={<ClipboardCheck size={32} color="#7C5CFA" />}
+            icon={<ClipboardCheck size={32} color="#2F6FED" />}
             title="No reports"
             description="There are no open reports right now."
           />
@@ -409,9 +311,17 @@ export default function ApprovalsScreen() {
                       <BodyMedium>{r.post.author.fullName}</BodyMedium>
                       <Badge label={r.reasons.slice(0, 2).join(', ')} tone="danger" />
                     </View>
-                    <Caption className="mb-3.5">
+                    <Caption className="mb-2">
                       Reported by {r.reportedByCount} user{r.reportedByCount > 1 ? 's' : ''}
                     </Caption>
+                    {r.reports
+                      .filter((rep) => rep.details)
+                      .map((rep) => (
+                        <Caption key={rep.id} className="mb-1 text-text-secondary dark:text-text-secondary-dark">
+                          "{rep.details}" — {rep.reportedBy.fullName}
+                        </Caption>
+                      ))}
+                    <View className="h-2" />
                     <View className="flex-row">
                       <SecondaryButton
                         label="Dismiss"

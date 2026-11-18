@@ -16,6 +16,7 @@ enum Role {
   Student
   Teacher
   Admin
+  Alumni
 }
 
 enum UserStatus {
@@ -78,6 +79,8 @@ model User {
   department      String? // for Teacher/Admin
   isEmailVerified Boolean    @default(false)
   points          Int        @default(0)
+  currentStreak   Int        @default(0) // consecutive days active, touched in auth.service.ts getStatus()
+  lastActiveAt    DateTime?
 
   agreedToTermsAt DateTime? // when they checked the Terms and Conditions box at signup
   expoPushToken   String? // for sending real push notifications (e.g. new notices)
@@ -108,9 +111,35 @@ model User {
   pollVotes         PollVote[]
   authoredQuizzes   Quiz[]            @relation("QuizAuthor")
   quizAttempts      QuizAttempt[]
+  generatedSignupCodes SignupCode[]   @relation("SignupCodeGeneratedBy")
+  redeemedSignupCode   SignupCode?    @relation("SignupCodeUsedBy")
 
   @@index([status])
   @@index([course, semester])
+}
+
+// ---------------------------------------------------------------------------
+// Signup codes — admin-issued, role-scoped, single-use proof of affiliation.
+// Lets signup auto-verify (no manual admin review needed) for anyone holding a
+// real code, instead of every signup landing in the approval queue by default.
+// ---------------------------------------------------------------------------
+
+model SignupCode {
+  id    String @id @default(cuid())
+  code  String @unique
+  role  Role // which role this code is valid for (Student/Teacher/Alumni — not Admin)
+  note  String? // optional label for the admin, e.g. "CS alumni batch 2024"
+
+  generatedById String
+  generatedBy   User   @relation("SignupCodeGeneratedBy", fields: [generatedById], references: [id])
+
+  usedByUserId String? @unique
+  usedBy       User?   @relation("SignupCodeUsedBy", fields: [usedByUserId], references: [id])
+  usedAt       DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([role, usedByUserId])
 }
 
 model Asset {
@@ -439,6 +468,7 @@ model QuizAnswer {
   question      QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
   selectedIndex Int?
   isCorrect     Boolean?
+  pointsEarned  Int      @default(0) // includes the speed bonus — see submitAttempt()
 
   @@unique([attemptId, questionId])
 }

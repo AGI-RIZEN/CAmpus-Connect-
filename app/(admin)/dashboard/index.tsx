@@ -13,6 +13,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { AnimatedCounter } from '@/components/ui/AnimatedCounter';
 import { Reveal } from '@/components/ui/Reveal';
+import { GradientBlob } from '@/components/ui/GradientBlob';
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
 import { useFakeLoading, useFakeRefresh } from '@/lib/hooks';
 import { FilterPill } from '@/components/screens/admin/FilterPill';
@@ -25,6 +26,13 @@ import { listNotices } from '@/lib/api/notices';
 import { listQuizzes } from '@/lib/api/quizzes';
 
 const dateRanges = ['Today', 'This Week', 'This Month', 'This Semester'] as const;
+
+// Smaller, lower-alpha blobs than the GradientBlob defaults — the dashboard header is a short
+// strip, not a full hero, so the ambient wash needs to fade out well before the strip's edges.
+const HEADER_BLOBS = [
+  { size: 170, top: -70, left: -50, colors: ['#2F6FED3D', '#2F6FED00'] as [string, string], driftRange: 14, duration: 6500 },
+  { size: 150, top: -40, right: 10, colors: ['#5B8DFF33', '#5B8DFF00'] as [string, string], driftRange: 18, duration: 7800 },
+];
 
 export default function AdminDashboardScreen() {
   const { colorScheme } = useColorScheme();
@@ -116,19 +124,24 @@ export default function AdminDashboardScreen() {
 
   return (
     <Screen refreshing={refreshing} onRefresh={onRefresh}>
-      <View className="flex-row items-center mt-6 mb-5">
-        <View className="w-11 h-11 rounded-full bg-primary/15 items-center justify-center mr-3">
-          <ShieldCheck size={22} color={colors.primary} />
-        </View>
-        <H1 className="flex-1">Admin Control Room</H1>
-        <IconButton onPress={() => router.push('/(admin)/dashboard/notifications')}>
-          <View>
-            <Bell size={20} color={colors.ink} />
-            {unreadCount > 0 && (
-              <View className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-danger" />
-            )}
+      {/* Negative margin + matching padding so the ambient blob panel runs a touch wider than
+          the content column without shifting the header's own alignment. */}
+      <View className="relative overflow-hidden rounded-[28px] -mx-3 px-3 py-3 mt-3 mb-5">
+        <GradientBlob blobs={HEADER_BLOBS} />
+        <Reveal index={0} spring scaleIn className="flex-row items-center">
+          <View className="w-11 h-11 rounded-full bg-primary/15 items-center justify-center mr-3">
+            <ShieldCheck size={22} color={colors.primary} />
           </View>
-        </IconButton>
+          <H1 className="flex-1">Admin Control Room</H1>
+          <IconButton onPress={() => router.push('/(admin)/dashboard/notifications')}>
+            <View>
+              <Bell size={20} color={colors.ink} />
+              {unreadCount > 0 && (
+                <View className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-danger" />
+              )}
+            </View>
+          </IconButton>
+        </Reveal>
       </View>
 
       <View className="flex-row mb-6">
@@ -150,7 +163,7 @@ export default function AdminDashboardScreen() {
       </View>
 
       <View className="flex-row flex-wrap -mx-1.5 mb-6">
-        <View className="w-1/2 px-1.5 mb-3">
+        <Reveal index={0} step={80} spring scaleIn className="w-1/2 px-1.5 mb-3">
           <StatCard
             icon={<Users size={20} color={colors.ink} />}
             label="Total Students"
@@ -160,9 +173,9 @@ export default function AdminDashboardScreen() {
             tone="lavender"
             onPress={() => router.push({ pathname: '/(admin)/more/users', params: { role: 'Student', status: 'Active' } })}
           />
-        </View>
+        </Reveal>
 
-        <View className="w-1/2 px-1.5 mb-3">
+        <Reveal index={1} step={80} spring scaleIn className="w-1/2 px-1.5 mb-3">
           <Card tone="peach" className="min-h-[140px] justify-between">
             <View className="w-10 h-10 rounded-full bg-white/60 dark:bg-black/15 items-center justify-center">
               <Clock size={20} color={colors.ink} />
@@ -181,9 +194,9 @@ export default function AdminDashboardScreen() {
               />
             </View>
           </Card>
-        </View>
+        </Reveal>
 
-        <View className="w-1/2 px-1.5">
+        <Reveal index={2} step={80} spring scaleIn className="w-1/2 px-1.5">
           <StatCard
             icon={<UserCheck size={20} color={colors.ink} />}
             label="Active Today"
@@ -193,9 +206,9 @@ export default function AdminDashboardScreen() {
             tone="mint"
             onPress={() => router.push({ pathname: '/(admin)/more/users', params: { activeToday: 'true' } })}
           />
-        </View>
+        </Reveal>
 
-        <View className="w-1/2 px-1.5">
+        <Reveal index={3} step={80} spring scaleIn className="w-1/2 px-1.5">
           <StatCard
             icon={<Ban size={20} color={colors.ink} />}
             label="Banned Users"
@@ -205,10 +218,11 @@ export default function AdminDashboardScreen() {
             tone="butter"
             onPress={() => router.push({ pathname: '/(admin)/more/users', params: { status: 'Banned' } })}
           />
-        </View>
+        </Reveal>
       </View>
 
-      <Reveal index={0}>
+      {/* Chart cards start their reveal after the stat-card cascade has landed. */}
+      <Reveal index={0} baseDelay={240}>
         <Card tone="white" className="mb-5">
           <H2 className="mb-1">Active Users (7 days)</H2>
           <Caption className="mb-4">Daily active students across all courses</Caption>
@@ -216,7 +230,7 @@ export default function AdminDashboardScreen() {
         </Card>
       </Reveal>
 
-      <Reveal index={1}>
+      <Reveal index={1} baseDelay={240}>
         <Card tone="white" className="mb-5">
           <H2 className="mb-4">Announcement Read Rate</H2>
           <PillBarChart data={stats?.readRates ?? []} />

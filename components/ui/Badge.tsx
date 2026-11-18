@@ -21,12 +21,15 @@ export function Badge({ label, tone = 'neutral', className = '' }: { label: stri
   );
 }
 
-export function statusTone(status: 'Pending' | 'Approved' | 'Rejected' | 'Active' | 'Banned'): Tone {
+export function statusTone(
+  status: 'Pending' | 'Approved' | 'Rejected' | 'Active' | 'Banned' | 'PendingApproval'
+): Tone {
   switch (status) {
     case 'Approved':
     case 'Active':
       return 'success';
     case 'Pending':
+    case 'PendingApproval':
       return 'warning';
     case 'Rejected':
     case 'Banned':

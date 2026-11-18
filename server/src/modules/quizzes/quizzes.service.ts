@@ -141,6 +141,12 @@ export async function startAttempt(requester: Requester, quizId: string) {
   });
   if (attempt?.submittedAt) throw new ApiError(409, 'You have already completed this quiz');
   if (!attempt) {
+    // Only gate the window on a brand-new attempt — someone who legitimately started before
+    // endAt is still allowed to submit what they already have open, even if the window has
+    // since closed (submitAttempt separately enforces the per-attempt time limit).
+    const now = new Date();
+    if (now < quiz.startAt) throw new ApiError(403, 'This quiz has not started yet');
+    if (now > quiz.endAt) throw new ApiError(403, 'This quiz has closed');
     attempt = await prisma.quizAttempt.create({ data: { quizId, userId: requester.id } });
   }
 
@@ -159,7 +165,7 @@ export async function startAttempt(requester: Requester, quizId: string) {
 export async function submitAttempt(
   requester: Requester,
   quizId: string,
-  answers: { questionId: string; selectedIndex: number | null }[]
+  answers: { questionId: string; selectedIndex: number | null; secondsRemaining?: number }[]
 ) {
   const attempt = await prisma.quizAttempt.findUnique({
     where: { quizId_userId: { quizId, userId: requester.id } },
@@ -169,8 +175,29 @@ export async function submitAttempt(
 
   const quiz = await prisma.quiz.findUnique({ where: { id: quizId }, include: { questions: true } });
   if (!quiz) throw new ApiError(404, 'Quiz not found');
+
+  // The question screen's countdown is a client-side convenience, not the real enforcement —
+  // without this, calling the endpoint directly (or backgrounding the app past the limit) let
+  // any attempt submit and score normally no matter how much time had actually elapsed.
+  const TIME_LIMIT_GRACE_MS = 30_000; // network/latency buffer, not extra thinking time
+  const elapsedMs = Date.now() - attempt.startedAt.getTime();
+  if (elapsedMs > quiz.timeLimitMinutes * 60_000 + TIME_LIMIT_GRACE_MS) {
+    throw new ApiError(403, 'Time is up for this quiz');
+  }
+
   const questionMap = new Map(quiz.questions.map((q) => [q.id, q]));
 
+  // Matches the client's own per-question allocation exactly (question/[id].tsx) — the quiz's
+  // declared time limit split evenly across its questions — so "seconds remaining" means the
+  // same thing on both sides of the submit.
+  const secondsPerQuestion = Math.max(10, Math.round((quiz.timeLimitMinutes * 60) / quiz.questions.length));
+
+  // Speed bonus: a correct answer scores between 50% and 100% of pointsPerQuestion depending on
+  // how much of the question's time allowance was left when it was answered — answer instantly,
+  // get full points; answer right at the buzzer, get half. `secondsRemaining` is client-reported
+  // (there's no server-side clock on individual answers in a batch-submit flow), so it's clamped
+  // to [0, secondsPerQuestion] — the worst a spoofed value can do is cap out at full points,
+  // exactly what a correct answer already scored before this change, not an exploit beyond that.
   let correctCount = 0;
   const answerRows = answers
     .filter((a) => questionMap.has(a.questionId))
@@ -178,10 +205,21 @@ export async function submitAttempt(
       const question = questionMap.get(a.questionId)!;
       const isCorrect = a.selectedIndex !== null && a.selectedIndex === question.correctIndex;
       if (isCorrect) correctCount++;
-      return { attemptId: attempt.id, questionId: a.questionId, selectedIndex: a.selectedIndex, isCorrect };
+
+      const remaining = Math.min(Math.max(a.secondsRemaining ?? 0, 0), secondsPerQuestion);
+      const speedFactor = 0.5 + 0.5 * (remaining / secondsPerQuestion);
+      const pointsEarned = isCorrect ? Math.round(quiz.pointsPerQuestion * speedFactor) : 0;
+
+      return {
+        attemptId: attempt.id,
+        questionId: a.questionId,
+        selectedIndex: a.selectedIndex,
+        isCorrect,
+        pointsEarned,
+      };
     });
 
-  const score = correctCount * quiz.pointsPerQuestion;
+  const score = answerRows.reduce((sum, a) => sum + a.pointsEarned, 0);
 
   await prisma.$transaction([
     prisma.quizAnswer.createMany({ data: answerRows }),
@@ -198,6 +236,7 @@ export async function submitAttempt(
       correctIndex: q.correctIndex,
       selectedIndex: ans?.selectedIndex ?? null,
       isCorrect: ans?.isCorrect ?? false,
+      pointsEarned: ans?.pointsEarned ?? 0,
       explanation: q.explanation,
     };
   });
@@ -226,6 +265,7 @@ export async function getResult(requester: Requester, quizId: string) {
     correctIndex: a.question.correctIndex,
     selectedIndex: a.selectedIndex,
     isCorrect: a.isCorrect ?? false,
+    pointsEarned: a.pointsEarned,
     explanation: a.question.explanation,
   }));
 
@@ -359,8 +399,22 @@ export async function getLeaderboard(
     take: 100,
   });
 
-  return buildLeaderboardResponse(
+  const response = buildLeaderboardResponse(
     requester.id,
     users.map((u) => ({ id: u.id, name: u.fullName, course: u.course, avatarUrl: u.avatarAsset?.secureUrl ?? null, points: u.points }))
   );
+
+  // The displayed list is capped at the top 100, so buildLeaderboardResponse only finds myRank
+  // there — anyone ranked 101st or below got reported as having no rank at all, indistinguishable
+  // from "you've never scored any points". Compute their real rank directly instead: 1 + however
+  // many students (within the same scope) have strictly more points than they do.
+  if (!response.myRank) {
+    const me = await prisma.user.findUnique({ where: { id: requester.id }, select: { points: true } });
+    if (me) {
+      const higherCount = await prisma.user.count({ where: { ...where, points: { gt: me.points } } });
+      response.myRank = { rank: higherCount + 1, points: me.points };
+    }
+  }
+
+  return response;
 }

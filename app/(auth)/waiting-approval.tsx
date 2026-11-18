@@ -6,6 +6,7 @@ import { H1, Body } from '@/components/ui/Text';
 import { Card } from '@/components/ui/Card';
 import { SecondaryButton } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
+import { Reveal } from '@/components/ui/Reveal';
 import { Illustration } from '@/components/screens/auth/Illustration';
 import { StepTracker, type Step } from '@/components/screens/auth/StepTracker';
 import { useAuth } from '@/lib/auth-context';
@@ -46,24 +47,33 @@ export default function WaitingApproval() {
 
   return (
     <Screen contentClassName="pt-6">
-      <Card tone="lavender" className="items-center">
-        <Illustration emoji="⏳" tone="lavender" size={180} />
-        <H1 className="mt-6 text-center">You&apos;re almost in!</H1>
-        <Body className="mt-2 mb-8 text-center text-text-secondary dark:text-text-secondary-dark">
-          Your account is being reviewed by the admin. We&apos;ll notify you once approved.
-        </Body>
+      <Reveal index={0} spring scaleIn>
+        <Card tone="lavender" className="items-center">
+          <Reveal index={1} spring scaleIn>
+            <Illustration emoji="⏳" tone="lavender" size={180} />
+          </Reveal>
+          <Reveal index={2} className="items-center">
+            <H1 className="mt-6 text-center">You&apos;re almost in!</H1>
+            <Body className="mt-2 mb-8 text-center text-text-secondary dark:text-text-secondary-dark">
+              Your account is being reviewed by the admin. We&apos;ll notify you once approved.
+            </Body>
+          </Reveal>
 
-        <View className="self-stretch mb-8">
-          <StepTracker steps={steps} />
-        </View>
+          {/* StepTracker staggers its own dots, so it only needs a base delay to land after the copy. */}
+          <View className="self-stretch mb-8">
+            <StepTracker steps={steps} />
+          </View>
 
-        <SecondaryButton
-          label={checking ? 'Checking…' : 'Refresh status'}
-          className="self-stretch"
-          disabled={checking}
-          onPress={handleRefresh}
-        />
-      </Card>
+          <Reveal index={6} className="self-stretch">
+            <SecondaryButton
+              label={checking ? 'Checking…' : 'Refresh status'}
+              className="self-stretch"
+              disabled={checking}
+              onPress={handleRefresh}
+            />
+          </Reveal>
+        </Card>
+      </Reveal>
     </Screen>
   );
 }

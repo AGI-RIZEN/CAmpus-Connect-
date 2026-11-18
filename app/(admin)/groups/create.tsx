@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { router } from 'expo-router';
 import { Check } from 'lucide-react-native';
 import { Screen } from '@/components/ui/Screen';
@@ -7,6 +7,8 @@ import { Header } from '@/components/ui/Header';
 import { Input } from '@/components/ui/Input';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { Avatar } from '@/components/ui/Avatar';
+import { AnimatedPressable } from '@/components/ui/AnimatedPressable';
+import { Reveal } from '@/components/ui/Reveal';
 import { PrimaryButton } from '@/components/ui/Button';
 import { BodyMedium, Body, Caption } from '@/components/ui/Text';
 import { useToast } from '@/components/ui/Toast';
@@ -26,8 +28,13 @@ export default function CreateGroupScreen() {
   const courseOptions = useMemo(() => ['All Courses', ...courses], []);
   const [course, setCourse] = useState(courseOptions[0]);
 
-  const roleOptions = ['Everyone', 'Students', 'Teachers'] as const;
+  const roleOptions = ['Everyone', 'Students', 'Teachers', 'Alumni'] as const;
   const [roleFilter, setRoleFilter] = useState<(typeof roleOptions)[number]>('Everyone');
+  const roleFilterToRole: Record<Exclude<(typeof roleOptions)[number], 'Everyone'>, AdminUser['role']> = {
+    Students: 'Student',
+    Teachers: 'Teacher',
+    Alumni: 'Alumni',
+  };
 
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -48,7 +55,7 @@ export default function CreateGroupScreen() {
   }, []);
 
   const roleFiltered =
-    roleFilter === 'Everyone' ? members : members.filter((m) => m.role === (roleFilter === 'Students' ? 'Student' : 'Teacher'));
+    roleFilter === 'Everyone' ? members : members.filter((m) => m.role === roleFilterToRole[roleFilter]);
   const courseFiltered = course === 'All Courses' ? roleFiltered : roleFiltered.filter((m) => m.course === course);
   const filteredMembers = courseFiltered.filter((m) => m.fullName.toLowerCase().includes(search.toLowerCase()));
   const selectedMembers = members.filter((m) => selected.has(m.id));
@@ -68,10 +75,10 @@ export default function CreateGroupScreen() {
     if (!canCreate) return;
     setCreating(true);
     try {
-      await createGroup({ name: name.trim(), memberIds: [...selected] });
+      const group = await createGroup({ name: name.trim(), memberIds: [...selected] });
       toast('Group created');
       haptic.success();
-      router.back();
+      router.replace(`/(app)/chat/group/${group.id}`);
     } catch (err) {
       const message = err instanceof ApiRequestError ? err.message : 'Could not create the group';
       toast(message, 'error');
@@ -123,7 +130,7 @@ export default function CreateGroupScreen() {
 
       <BodyMedium className="mb-3">Add Members</BodyMedium>
       <SearchBar
-        placeholder="Search students & teachers"
+        placeholder="Search students, teachers & alumni"
         value={search}
         onChangeText={setSearch}
         className="mb-4"
@@ -150,11 +157,17 @@ export default function CreateGroupScreen() {
             No members found.
           </Body>
         ) : (
-          filteredMembers.map((m) => {
+          filteredMembers.map((m, i) => {
             const isSelected = selected.has(m.id);
-            const subtitle = m.role === 'Teacher' ? `Teacher · ${m.department ?? 'Faculty'}` : (m.course ?? '—');
+            const subtitle =
+              m.role === 'Teacher'
+                ? `Teacher · ${m.department ?? 'Faculty'}`
+                : m.role === 'Alumni'
+                ? `Alumni · ${m.course ?? '—'}`
+                : (m.course ?? '—');
             return (
-              <Pressable key={m.id} onPress={() => toggle(m.id)} className="flex-row items-center py-2.5">
+              <Reveal key={m.id} index={i} step={35}>
+              <AnimatedPressable onPress={() => toggle(m.id)} haptics="select" scaleTo={0.98} className="flex-row items-center py-2.5">
                 <Avatar uri={m.avatarUrl} name={m.fullName} size={44} />
                 <View className="flex-1 ml-3">
                   <BodyMedium>{m.fullName}</BodyMedium>
@@ -165,9 +178,14 @@ export default function CreateGroupScreen() {
                     isSelected ? 'bg-primary border-primary' : 'border-border-light dark:border-border-dark'
                   }`}
                 >
-                  {isSelected && <Check size={14} color="#fff" />}
+                  {isSelected && (
+                    <Reveal spring scaleIn>
+                      <Check size={14} color="#fff" />
+                    </Reveal>
+                  )}
                 </View>
-              </Pressable>
+              </AnimatedPressable>
+              </Reveal>
             );
           })
         )}

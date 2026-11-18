@@ -5,6 +5,7 @@ import { Screen } from '@/components/ui/Screen';
 import { H2, Body } from '@/components/ui/Text';
 import { PrimaryButton } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
+import { Reveal } from '@/components/ui/Reveal';
 import { Illustration } from '@/components/screens/auth/Illustration';
 
 const SUPPORT_EMAIL = 'admin@campusconnect.edu';

@@ -1,9 +1,10 @@
 import React from 'react';
-import { View } from 'react-native';
+import { Linking, View } from 'react-native';
 import { FileText, Download } from 'lucide-react-native';
 import { Card } from '@/components/ui/Card';
 import { IconButton } from '@/components/ui/IconButton';
 import { BodyMedium, Caption } from '@/components/ui/Text';
+import { useToast } from '@/components/ui/Toast';
 import { colors } from '@/lib/theme';
 
 export type FileItem = {
@@ -13,6 +14,7 @@ export type FileItem = {
   size: string;
   uploader: string;
   date: string;
+  url: string;
 };
 
 function styleFor(type: string): { bg: string; color: string } {
@@ -23,6 +25,11 @@ function styleFor(type: string): { bg: string; color: string } {
 
 export function FileRow({ file }: { file: FileItem }) {
   const { bg, color } = styleFor(file.type);
+  const toast = useToast();
+
+  const handleDownload = () => {
+    Linking.openURL(file.url).catch(() => toast("Couldn't open that file", 'error'));
+  };
 
   return (
     <Card tone="white" className="flex-row items-center mb-3">
@@ -35,7 +42,7 @@ export function FileRow({ file }: { file: FileItem }) {
           {file.size} · {file.uploader} · {file.date}
         </Caption>
       </View>
-      <IconButton size={40} variant="white">
+      <IconButton size={40} variant="white" onPress={handleDownload}>
         <Download size={18} color={colors.textSecondary} />
       </IconButton>
     </Card>

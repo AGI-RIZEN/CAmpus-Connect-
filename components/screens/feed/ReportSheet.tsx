@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Modal, Pressable, View } from 'react-native';
+import { Modal, Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CheckCircle2, Circle, X } from 'lucide-react-native';
 import { IconButton } from '@/components/ui/IconButton';
+import { KeyboardAvoidingView } from '@/components/ui/KeyboardSafe';
 import { PrimaryButton } from '@/components/ui/Button';
-import { Body, H2 } from '@/components/ui/Text';
+import { Reveal } from '@/components/ui/Reveal';
+import { Body, Caption, H2 } from '@/components/ui/Text';
 import { useToast } from '@/components/ui/Toast';
 import { haptic } from '@/lib/haptics';
 import { colors, softShadowLg } from '@/lib/theme';
@@ -23,10 +25,12 @@ export function ReportSheet({ visible, onClose, postId }: Props) {
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const [reason, setReason] = useState<ReportReason | null>(null);
+  const [details, setDetails] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const handleClose = () => {
     setReason(null);
+    setDetails('');
     onClose();
   };
 
@@ -34,11 +38,10 @@ export function ReportSheet({ visible, onClose, postId }: Props) {
     if (!reason || submitting) return;
     setSubmitting(true);
     try {
-      await reportPost(postId, reason);
+      await reportPost(postId, reason, reason === 'Other' ? details.trim() || undefined : undefined);
       toast('Report submitted');
       haptic.success();
-      setReason(null);
-      onClose();
+      handleClose();
     } catch (err) {
       const message = err instanceof ApiRequestError ? err.message : 'Could not submit the report';
       toast(message, 'error');
@@ -49,10 +52,11 @@ export function ReportSheet({ visible, onClose, postId }: Props) {
 
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={handleClose}>
-      <Pressable className="flex-1 bg-black/40" onPress={handleClose} />
-      <View
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+      <Pressable className="flex-1 bg-black/40 justify-end" onPress={handleClose}>
+      <Pressable
         style={[softShadowLg, { paddingBottom: insets.bottom + 20 }]}
-        className="absolute bottom-0 left-0 right-0 bg-white dark:bg-surface-dark rounded-t-[32px] px-5 pt-5"
+        className="bg-white dark:bg-surface-dark rounded-t-[32px] px-5 pt-5"
       >
         <View className="flex-row items-center justify-between mb-2">
           <View style={{ width: 36 }} />
@@ -61,29 +65,57 @@ export function ReportSheet({ visible, onClose, postId }: Props) {
             <X size={18} color={colors.ink} />
           </IconButton>
         </View>
-        {REASONS.map((r) => {
+        {REASONS.map((r, i) => {
           const selected = reason === r;
           return (
-            <Pressable
-              key={r}
-              onPress={() => {
-                haptic.select();
-                setReason(r);
-              }}
-              className="flex-row items-center justify-between py-4 border-b border-border-light dark:border-border-dark"
-            >
-              <Body>{r}</Body>
-              {selected ? <CheckCircle2 size={22} color={colors.primary} /> : <Circle size={22} color={colors.textSecondary} />}
-            </Pressable>
+            <Reveal key={r} index={i} step={45} baseDelay={80}>
+              <Pressable
+                onPress={() => {
+                  haptic.select();
+                  setReason(r);
+                }}
+                className="flex-row items-center justify-between py-4 border-b border-border-light dark:border-border-dark"
+              >
+                <Body>{r}</Body>
+                {selected ? (
+                  <Reveal spring scaleIn>
+                    <CheckCircle2 size={22} color={colors.primary} />
+                  </Reveal>
+                ) : (
+                  <Circle size={22} color={colors.textSecondary} />
+                )}
+              </Pressable>
+            </Reveal>
           );
         })}
+
+        {reason === 'Other' && (
+          <Reveal spring scaleIn className="mt-3">
+            <Caption className="mb-2">Tell us more (optional)</Caption>
+            <View className="rounded-input bg-background dark:bg-background-dark border border-border-light dark:border-border-dark px-4">
+              <TextInput
+                value={details}
+                onChangeText={setDetails}
+                placeholder="What's wrong with this post?"
+                placeholderTextColor={colors.textSecondary}
+                multiline
+                textAlignVertical="top"
+                className="py-3 font-poppins text-body text-text-primary dark:text-text-primary-dark"
+                style={{ minHeight: 70 }}
+              />
+            </View>
+          </Reveal>
+        )}
+
         <PrimaryButton
           label={submitting ? 'Submitting…' : 'Submit Report'}
           onPress={handleSubmit}
           disabled={!reason || submitting}
           className="mt-6"
         />
-      </View>
+      </Pressable>
+      </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

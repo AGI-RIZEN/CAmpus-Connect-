@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Image, View } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { Avatar } from '@/components/ui/Avatar';
 import { Body, Caption } from '@/components/ui/Text';
 import { formatClockTime } from '@/lib/time';
@@ -16,16 +16,30 @@ type Props = {
 export function MessageBubble({ message, mine, onVote }: Props) {
   const { sender, text, image, poll, createdAt } = message;
 
-  // Mount-only fade+slide-up so a freshly-appended message feels alive. Because each
+  // Mount-only entrance so a freshly-appended message feels alive. Because each
   // bubble is keyed by message.id, this effect only ever fires once per message —
   // existing messages already mounted are untouched by later re-renders of the list.
+  //
+  // Own messages keep the quick eased fade+slide (they should feel instant on send);
+  // incoming messages get a bouncier spring with a small scale-in and a nudge from the
+  // left, so a reply "arriving" reads as a distinct, slightly playful event.
   const entrance = useSharedValue(0);
   useEffect(() => {
-    entrance.value = withTiming(1, { duration: 250, easing: Easing.out(Easing.cubic) });
+    entrance.value = mine
+      ? withTiming(1, { duration: 250, easing: Easing.out(Easing.cubic) })
+      : withSpring(1, { damping: 13, stiffness: 170, mass: 0.6 });
   }, []);
   const entranceStyle = useAnimatedStyle(() => ({
-    opacity: entrance.value,
-    transform: [{ translateY: (1 - entrance.value) * 10 }],
+    // Clamped — a spring overshooting past 1 would otherwise briefly warn/clip.
+    opacity: Math.min(Math.max(entrance.value, 0), 1),
+    transform: mine
+      ? [{ translateY: (1 - entrance.value) * 10 }]
+      : [
+          { translateY: (1 - entrance.value) * 10 },
+          { translateX: (1 - entrance.value) * -8 },
+          // Not clamped on purpose — the spring's slight overshoot past 1 is the "pop".
+          { scale: 0.92 + entrance.value * 0.08 },
+        ],
   }));
 
   const bubbleClass = mine

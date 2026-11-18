@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Modal, Pressable, Share, View } from 'react-native';
-import { Bookmark, Flag, Heart, MessageCircle, MoreHorizontal, Share2 } from 'lucide-react-native';
+import { Bookmark, Flag, MessageCircle, MoreHorizontal, Share2 } from 'lucide-react-native';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
@@ -16,6 +16,7 @@ import { ApiRequestError } from '@/lib/api/client';
 import { ImageCarousel } from './ImageCarousel';
 import { CommentsSheet } from './CommentsSheet';
 import { ReportSheet } from './ReportSheet';
+import { LikeHeart } from './LikeHeart';
 
 type MenuItemProps = {
   icon: React.ComponentType<{ size?: number; color?: string }>;
@@ -105,8 +106,8 @@ export function PostCard({ post }: { post: Post }) {
       )}
 
       <View className="flex-row items-center mt-3.5">
-        <AnimatedPressable onPress={toggleLikeLocal} haptics="none" className="mr-4">
-          <Heart size={22} color={liked ? colors.danger : colors.textSecondary} fill={liked ? colors.danger : 'none'} />
+        <AnimatedPressable onPress={toggleLikeLocal} haptics="none" scaleTo={0.85} className="mr-4">
+          <LikeHeart liked={liked} />
         </AnimatedPressable>
         <AnimatedPressable onPress={() => setCommentsOpen(true)} haptics="tap" className="mr-4">
           <MessageCircle size={22} color={colors.textSecondary} />

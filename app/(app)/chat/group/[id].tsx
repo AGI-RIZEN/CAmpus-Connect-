@@ -193,7 +193,7 @@ export default function GroupChatScreen() {
             />
           ) : (
             files.map((file, i) => (
-              <Reveal key={file.id} index={i}>
+              <Reveal key={file.id} index={i} spring>
                 <FileRow file={{ ...file, date: formatDate(file.date) }} />
               </Reveal>
             ))
@@ -218,10 +218,12 @@ export default function GroupChatScreen() {
               description="Create one from the chat composer."
             />
           ) : (
-            polls.map((poll) => (
-              <Card key={poll.id} tone="white" className="mb-4">
-                <PollCard poll={poll} large onVote={(optionId) => vote(poll.id, optionId)} />
-              </Card>
+            polls.map((poll, i) => (
+              <Reveal key={poll.id} index={i} spring scaleIn>
+                <Card tone="white" className="mb-4">
+                  <PollCard poll={poll} large onVote={(optionId) => vote(poll.id, optionId)} />
+                </Card>
+              </Reveal>
             ))
           )}
         </ScrollView>

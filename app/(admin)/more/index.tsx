@@ -1,7 +1,7 @@
 import React from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
-import { Settings, Users, LogOut, ChevronRight } from 'lucide-react-native';
+import { Settings, Users, KeyRound, LogOut, ChevronRight } from 'lucide-react-native';
 import { Screen } from '@/components/ui/Screen';
 import { Header } from '@/components/ui/Header';
 import { BodyMedium, Caption } from '@/components/ui/Text';
@@ -72,6 +72,13 @@ export default function AdminMoreScreen() {
           label="User Management"
           sublabel="Manage student & teacher accounts"
           onPress={() => router.push('/(admin)/more/users')}
+        />
+
+        <Row
+          icon={<KeyRound size={20} color={colors.primary} />}
+          label="Signup Codes"
+          sublabel="Generate and share codes for new signups"
+          onPress={() => router.push('/(admin)/more/signup-codes')}
         />
 
         <View className="mt-4">

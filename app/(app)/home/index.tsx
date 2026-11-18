@@ -13,6 +13,7 @@ import {
   Trophy,
   TrendingUp,
   Clock,
+  Flame,
 } from 'lucide-react-native';
 import { Screen } from '@/components/ui/Screen';
 import { H1, H2, Body, BodyMedium, Caption } from '@/components/ui/Text';
@@ -22,13 +23,17 @@ import { StatCard } from '@/components/ui/StatCard';
 import { Avatar } from '@/components/ui/Avatar';
 import { AnimatedPressable } from '@/components/ui/AnimatedPressable';
 import { Reveal } from '@/components/ui/Reveal';
+import { GradientBlob } from '@/components/ui/GradientBlob';
+import { AttentionPulse } from '@/components/screens/notices/AttentionPulse';
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
+import { OfflineState } from '@/components/ui/OfflineState';
 import { useFakeLoading, useFakeRefresh } from '@/lib/hooks';
 import { colors, cardToneClasses, softShadow, softShadowLg, type CardTone } from '@/lib/theme';
 import { useAuth } from '@/lib/auth-context';
 import { listNotices, type Notice } from '@/lib/api/notices';
+import { isNetworkError } from '@/lib/api/client';
 import { getUnreadCount } from '@/lib/api/notifications';
-import { listQuizzes, type QuizSummary } from '@/lib/api/quizzes';
+import { listQuizzes, getLeaderboard, type QuizSummary } from '@/lib/api/quizzes';
 import { startsInLabel } from '@/lib/time';
 
 type QuickAction = {
@@ -46,12 +51,24 @@ const quickActions: QuickAction[] = [
   { label: 'Polls', icon: BarChart2, tone: 'sky', route: '/(app)/chat' },
 ];
 
+// Ambient colour behind the greeting + hero: a lavender bloom top-left (behind the avatar/name),
+// a lighter primary bloom top-right (behind the bell), and a faint peach warm-up lower-left so
+// the quick-actions row doesn't sit on flat background. Alphas are low enough to read as a
+// soft wash in both light and dark mode rather than a visible gradient.
+const HOME_BLOBS = [
+  { size: 300, top: -140, left: -100, colors: ['#2F6FED3D', '#2F6FED00'] as [string, string], driftRange: 18, duration: 6400 },
+  { size: 240, top: -70, right: -90, colors: ['#5B8DFF33', '#5B8DFF00'] as [string, string], driftRange: 22, duration: 7600 },
+  { size: 220, bottom: -120, left: 40, colors: ['#FFB38A2B', '#FFB38A00'] as [string, string], driftRange: 16, duration: 8400 },
+];
+
 export default function HomeScreen() {
   const { user } = useAuth();
   const [allNotices, setAllNotices] = useState<Notice[]>([]);
   const [noticesLoading, setNoticesLoading] = useState(true);
+  const [offline, setOffline] = useState(false);
   const [unreadNotifs, setUnreadNotifs] = useState(0);
   const [upcomingQuiz, setUpcomingQuiz] = useState<QuizSummary | null>(null);
+  const [myRank, setMyRank] = useState<number | null>(null);
 
   const firstName = user?.fullName.split(' ')[0] ?? 'there';
 
@@ -61,8 +78,11 @@ export default function HomeScreen() {
     try {
       const result = await listNotices();
       setAllNotices(result);
-    } catch {
-      // Home stays usable even if notices fail to load — just shows the static fallback card.
+      setOffline(false);
+    } catch (err) {
+      // No connectivity at all → swap the screen for the offline state. Any other failure keeps
+      // Home usable and just shows the static fallback card.
+      if (isNetworkError(err)) setOffline(true);
     } finally {
       setNoticesLoading(false);
     }
@@ -71,6 +91,13 @@ export default function HomeScreen() {
   useEffect(() => {
     loadNotices();
   }, [loadNotices, refreshing]);
+
+  // Retry from the offline state re-shows the skeleton while we try again (pull-to-refresh
+  // deliberately doesn't, so this isn't folded into loadNotices itself).
+  const retryNotices = useCallback(() => {
+    setNoticesLoading(true);
+    loadNotices();
+  }, [loadNotices]);
 
   useEffect(() => {
     getUnreadCount()
@@ -81,6 +108,12 @@ export default function HomeScreen() {
   useEffect(() => {
     listQuizzes({ status: 'upcoming' })
       .then((list) => setUpcomingQuiz(list[0] ?? null))
+      .catch(() => {});
+  }, [refreshing]);
+
+  useEffect(() => {
+    getLeaderboard({ scope: 'all', window: 'all' })
+      .then((board) => setMyRank(board.myRank?.rank ?? null))
       .catch(() => {});
   }, [refreshing]);
 
@@ -126,10 +159,25 @@ export default function HomeScreen() {
     );
   }
 
+  if (offline) {
+    return (
+      <Screen>
+        <OfflineState onRetry={retryNotices} />
+      </Screen>
+    );
+  }
+
   return (
     <Screen refreshing={refreshing} onRefresh={onRefresh}>
+      {/* Just the header gets the ambient blobs — scoped tightly so they read as a soft wash
+          behind the greeting, not a background that bleeds across the notice card and quick
+          actions below it (`-mx-screen` undoes Screen's padding, `px-screen` restores it for
+          content, both undone outside this box once the header ends). */}
+      <View className="relative overflow-hidden -mx-screen px-screen pt-2 pb-2">
+        <GradientBlob blobs={HOME_BLOBS} />
+
       {/* Header */}
-      <View className="flex-row items-center justify-between mt-2">
+      <Reveal index={0} className="flex-row items-center justify-between">
         <AnimatedPressable
           onPress={() => router.push('/(app)/profile')}
           haptics="select"
@@ -147,26 +195,38 @@ export default function HomeScreen() {
           </View>
         </AnimatedPressable>
 
+        {(user?.currentStreak ?? 0) > 0 && (
+          <Reveal spring scaleIn style={{ marginRight: 8 }}>
+            <View className="flex-row items-center bg-card-butter dark:bg-card-butter-dark rounded-full px-3 py-1.5">
+              <Flame size={16} color={colors.warning} />
+              <BodyMedium className="ml-1">{user?.currentStreak}</BodyMedium>
+            </View>
+          </Reveal>
+        )}
+
         <View className="relative">
           <IconButton onPress={() => router.push('/(app)/home/notifications')}>
             <Bell size={22} color={colors.ink} />
           </IconButton>
           {unreadNotifs > 0 && (
-            <View className="absolute top-0.5 right-0.5 w-3 h-3 rounded-full bg-danger border-2 border-background dark:border-background-dark" />
+            <AttentionPulse delay={700} className="absolute top-0.5 right-0.5">
+              <View className="w-3 h-3 rounded-full bg-danger border-2 border-background dark:border-background-dark" />
+            </AttentionPulse>
           )}
         </View>
+      </Reveal>
       </View>
 
       {/* Hero urgent notice */}
       {urgentNotice && (
-        <Reveal index={0} className="mt-6">
+        <Reveal index={1} spring scaleIn className="mt-6">
         <AnimatedPressable
           onPress={() => router.push(`/(app)/home/announcement/${urgentNotice.id}`)}
           haptics="select"
           scaleTo={0.98}
         >
           <LinearGradient
-            colors={[colors.primary, '#6342E8']}
+            colors={[colors.primary, '#1E4FBA']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={softShadowLg}
@@ -174,9 +234,11 @@ export default function HomeScreen() {
           >
             <View className="flex-row items-start">
               <View className="flex-1 pr-2">
-                <View className="self-start bg-white rounded-full px-3 py-1">
-                  <Caption className="text-danger font-poppins-bold">URGENT</Caption>
-                </View>
+                <AttentionPulse active={urgentNotice.category === 'Urgent'} delay={620}>
+                  <View className="bg-white rounded-full px-3 py-1">
+                    <Caption className="text-danger font-poppins-bold">URGENT</Caption>
+                  </View>
+                </AttentionPulse>
                 <H2 className="text-white mt-3" numberOfLines={2}>
                   {urgentNotice.title}
                 </H2>
@@ -205,11 +267,11 @@ export default function HomeScreen() {
       )}
 
       {/* Quick actions */}
-      <Reveal index={1}>
+      <Reveal index={2} spring>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          className="mt-6"
+          className="mt-6 pb-1"
           contentContainerClassName="pr-4"
         >
           {quickActions.map((action) => (
@@ -231,9 +293,9 @@ export default function HomeScreen() {
         </ScrollView>
       </Reveal>
 
-      {/* Bento stats grid */}
+      {/* Bento stats grid — each tile springs in on its own beat, left-to-right, top-to-bottom. */}
       <View className="flex-row flex-wrap -mx-1.5 mt-6">
-        <View className="w-1/2 px-1.5 mb-3">
+        <Reveal index={3} spring scaleIn className="w-1/2 px-1.5 mb-3">
           <StatCard
             icon={<Trophy size={20} color={colors.ink} />}
             label="Quiz Points"
@@ -242,16 +304,17 @@ export default function HomeScreen() {
             animateDelay={0}
             tone="butter"
           />
-        </View>
-        <View className="w-1/2 px-1.5 mb-3">
+        </Reveal>
+        <Reveal index={4} spring scaleIn className="w-1/2 px-1.5 mb-3">
           <StatCard
             icon={<TrendingUp size={20} color={colors.ink} />}
             label="My Rank"
-            value="—"
+            value={myRank ? `#${myRank}` : '—'}
             tone="mint"
+            onPress={() => router.push('/(app)/quiz/leaderboard')}
           />
-        </View>
-        <View className="w-1/2 px-1.5">
+        </Reveal>
+        <Reveal index={5} spring scaleIn className="w-1/2 px-1.5">
           <StatCard
             icon={<Bell size={20} color={colors.ink} />}
             label="Unread Notices"
@@ -261,8 +324,8 @@ export default function HomeScreen() {
             tone="lavender"
             onPress={() => router.push('/(app)/home/announcements')}
           />
-        </View>
-        <View className="w-1/2 px-1.5">
+        </Reveal>
+        <Reveal index={6} spring scaleIn className="w-1/2 px-1.5">
           <StatCard
             icon={<Clock size={20} color={colors.ink} />}
             label="Upcoming Quiz"
@@ -270,30 +333,32 @@ export default function HomeScreen() {
             tone="peach"
             onPress={() => router.push('/(app)/quiz')}
           />
-        </View>
+        </Reveal>
       </View>
 
       {/* Upcoming quiz section */}
-      <H2 className="mt-7 mb-3">Upcoming Quiz</H2>
-      <Card tone="white">
-        <View className="flex-row items-center justify-between">
-          <View className="flex-1 pr-3">
-            <Caption>{upcomingQuiz?.subject ?? 'General Knowledge'}</Caption>
-            <BodyMedium className="mt-1" numberOfLines={1}>
-              {upcomingQuiz?.title ?? 'New quiz coming soon'}
-            </BodyMedium>
-            <Caption className="mt-2 text-primary">
-              Starts {upcomingQuiz ? startsInLabel(upcomingQuiz.startAt) : '— TBA'}
-            </Caption>
+      <Reveal index={7}>
+        <H2 className="mt-7 mb-3">Upcoming Quiz</H2>
+        <Card tone="white">
+          <View className="flex-row items-center justify-between">
+            <View className="flex-1 pr-3">
+              <Caption>{upcomingQuiz?.subject ?? 'General Knowledge'}</Caption>
+              <BodyMedium className="mt-1" numberOfLines={1}>
+                {upcomingQuiz?.title ?? 'New quiz coming soon'}
+              </BodyMedium>
+              <Caption className="mt-2 text-primary">
+                Starts {upcomingQuiz ? startsInLabel(upcomingQuiz.startAt) : '— TBA'}
+              </Caption>
+            </View>
+            <View className="bg-card-sky dark:bg-card-sky-dark rounded-full px-4 py-2 flex-row items-center">
+              <Clock size={14} color={colors.ink} />
+              <Caption className="ml-1.5 font-poppins-semibold">
+                {upcomingQuiz ? startsInLabel(upcomingQuiz.startAt) : 'TBA'}
+              </Caption>
+            </View>
           </View>
-          <View className="bg-card-sky dark:bg-card-sky-dark rounded-full px-4 py-2 flex-row items-center">
-            <Clock size={14} color={colors.ink} />
-            <Caption className="ml-1.5 font-poppins-semibold">
-              {upcomingQuiz ? startsInLabel(upcomingQuiz.startAt) : 'TBA'}
-            </Caption>
-          </View>
-        </View>
-      </Card>
+        </Card>
+      </Reveal>
 
       <View className="mb-8" />
     </Screen>

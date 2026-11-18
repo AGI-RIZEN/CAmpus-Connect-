@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
-import { Trophy, Sparkles } from 'lucide-react-native';
+import { Trophy, Sparkles, ListChecks } from 'lucide-react-native';
 import { Screen } from '@/components/ui/Screen';
 import { H1, Caption } from '@/components/ui/Text';
 import { Chip } from '@/components/ui/Chip';
 import { IconButton } from '@/components/ui/IconButton';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { OfflineState } from '@/components/ui/OfflineState';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { AnimatedCounter } from '@/components/ui/AnimatedCounter';
 import { Reveal } from '@/components/ui/Reveal';
@@ -15,7 +17,7 @@ import { QuizCard } from '@/components/screens/quiz/QuizCard';
 import { useAuth } from '@/lib/auth-context';
 import { listQuizzes, getLeaderboard, type QuizSummary, type QuizStatus } from '@/lib/api/quizzes';
 import { useToast } from '@/components/ui/Toast';
-import { ApiRequestError } from '@/lib/api/client';
+import { ApiRequestError, isNetworkError } from '@/lib/api/client';
 
 const TABS: { key: QuizStatus; label: string }[] = [
   { key: 'live', label: 'Live' },
@@ -43,6 +45,7 @@ export default function QuizHomeScreen() {
   const [quizzes, setQuizzes] = useState<QuizSummary[]>([]);
   const [myRank, setMyRank] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [offline, setOffline] = useState(false);
   const { refreshing, onRefresh } = useFakeRefresh();
 
   const load = useCallback(async () => {
@@ -50,7 +53,12 @@ export default function QuizHomeScreen() {
       const [list, board] = await Promise.all([listQuizzes({ status: tab }), getLeaderboard()]);
       setQuizzes(list);
       setMyRank(board.myRank?.rank ?? null);
+      setOffline(false);
     } catch (err) {
+      if (isNetworkError(err)) {
+        setOffline(true);
+        return;
+      }
       const message = err instanceof ApiRequestError ? err.message : 'Could not load quizzes';
       toast(message, 'error');
     } finally {
@@ -133,8 +141,14 @@ export default function QuizHomeScreen() {
           <QuizCardSkeleton />
           <QuizCardSkeleton />
         </>
+      ) : offline ? (
+        <OfflineState onRetry={load} />
       ) : quizzes.length === 0 ? (
-        <Caption className="mt-6 text-center">No {tab} quizzes right now.</Caption>
+        <EmptyState
+          icon={<ListChecks size={32} color={colors.primary} />}
+          title={`No ${tab} quizzes`}
+          description={`There are no ${tab} quizzes right now. Check back soon.`}
+        />
       ) : (
         quizzes.map((quiz, i) => (
           <Reveal key={quiz.id} index={i + 1}>

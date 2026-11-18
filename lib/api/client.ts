@@ -10,6 +10,14 @@ export class ApiRequestError extends Error {
   }
 }
 
+/** True specifically for a failed fetch() — no connection reached the server at all — as
+ *  opposed to the server responding with a real error status (4xx/5xx). apiRequest() below
+ *  throws status 0 only from its fetch-level catch, never from a server response, so this is a
+ *  reliable "the user is offline" signal without needing any network-detection dependency. */
+export function isNetworkError(err: unknown): boolean {
+  return err instanceof ApiRequestError && err.status === 0;
+}
+
 type RequestOptions = {
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   body?: unknown;

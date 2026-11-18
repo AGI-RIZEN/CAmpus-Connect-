@@ -10,6 +10,8 @@ import { router } from 'expo-router';
 import { Screen } from '@/components/ui/Screen';
 import { H1, Body } from '@/components/ui/Text';
 import { PrimaryButton, TextLinkButton } from '@/components/ui/Button';
+import { Reveal } from '@/components/ui/Reveal';
+import { GradientBlob } from '@/components/ui/GradientBlob';
 import { Illustration } from '@/components/screens/auth/Illustration';
 import { Dots } from '@/components/screens/auth/Dots';
 import { haptic } from '@/lib/haptics';
@@ -76,37 +78,56 @@ export default function Onboarding() {
 
   return (
     <Screen scroll={false} padded={false}>
-      <View className="flex-row justify-end px-screen pt-2">
-        <TextLinkButton label="Skip" onPress={() => router.replace('/(auth)/login')} />
-      </View>
-
-      <ScrollView
-        ref={scrollRef}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={handleScrollEnd}
-        scrollEventThrottle={16}
-        style={{ flexGrow: 0 }}
-      >
-        {slides.map((slide) => (
-          <View key={slide.key} style={{ width: SCREEN_WIDTH }} className="items-center justify-center py-10">
-            <Illustration emoji={slide.emoji} tone={slide.tone} size={220} />
-          </View>
-        ))}
-      </ScrollView>
-
-      <View className="px-screen pb-6 flex-1 justify-end">
-        <H1>{current.title}</H1>
-        <Body className="mt-2 text-text-secondary dark:text-text-secondary-dark">{current.description}</Body>
-
-        <Dots count={slides.length} activeIndex={index} className="mt-6" />
-
-        <PrimaryButton
-          label={isLast ? 'Get Started' : 'Next'}
-          onPress={handlePrimary}
-          className="mt-6"
+      {/* Relative + overflow-hidden wrapper so the ambient blobs stay clipped to the screen. */}
+      <View style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+        <GradientBlob
+          blobs={[
+            { size: 300, top: -90, left: -80, colors: ['#2F6FED40', '#2F6FED00'], driftRange: 20, duration: 6400 },
+            { size: 240, top: 40, right: -90, colors: ['#5B8DFF38', '#5B8DFF00'], driftRange: 24, duration: 7600 },
+            { size: 220, bottom: 120, left: -100, colors: ['#FFE4D680', '#FFE4D600'], driftRange: 16, duration: 8200 },
+          ]}
         />
+
+        <View className="flex-row justify-end px-screen pt-2">
+          <TextLinkButton label="Skip" onPress={() => router.replace('/(auth)/login')} />
+        </View>
+
+        <ScrollView
+          ref={scrollRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={handleScrollEnd}
+          scrollEventThrottle={16}
+          style={{ flexGrow: 0 }}
+        >
+          {slides.map((slide, i) => (
+            <View key={slide.key} style={{ width: SCREEN_WIDTH }} className="items-center justify-center py-10">
+              <Reveal index={i} spring scaleIn>
+                <Illustration emoji={slide.emoji} tone={slide.tone} size={220} />
+              </Reveal>
+            </View>
+          ))}
+        </ScrollView>
+
+        <View className="px-screen pb-6 flex-1 justify-end">
+          {/* Keyed on the slide so the copy re-reveals each time the page changes. */}
+          <Reveal key={current.key}>
+            <H1>{current.title}</H1>
+            <Body className="mt-2 text-text-secondary dark:text-text-secondary-dark">{current.description}</Body>
+          </Reveal>
+
+          <Dots count={slides.length} activeIndex={index} className="mt-6" />
+
+          <Reveal index={2}>
+            <PrimaryButton
+              label={isLast ? 'Get Started' : 'Next'}
+              onPress={handlePrimary}
+              className="mt-6"
+              shine
+            />
+          </Reveal>
+        </View>
       </View>
     </Screen>
   );

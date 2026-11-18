@@ -6,6 +6,7 @@ import { Header } from '@/components/ui/Header';
 import { H1, Body, BodyMedium } from '@/components/ui/Text';
 import { PrimaryButton } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
+import { Reveal } from '@/components/ui/Reveal';
 import { Illustration } from '@/components/screens/auth/Illustration';
 import { OtpBoxes } from '@/components/screens/auth/OtpBoxes';
 import { haptic } from '@/lib/haptics';
@@ -74,33 +75,41 @@ export default function Otp() {
       <Header title="Verify Email" />
 
       <View className="items-center mt-4 mb-8">
-        <Illustration emoji="✉️" tone="sky" size={160} />
-        <H1 className="mt-6 text-center">Check your inbox</H1>
-        <Body className="mt-2 text-center text-text-secondary dark:text-text-secondary-dark">
-          We&apos;ve sent a 6-digit verification code to your email address.
-        </Body>
+        <Reveal index={0} spring scaleIn>
+          <Illustration emoji="✉️" tone="sky" size={160} />
+        </Reveal>
+        <Reveal index={1} className="items-center">
+          <H1 className="mt-6 text-center">Check your inbox</H1>
+          <Body className="mt-2 text-center text-text-secondary dark:text-text-secondary-dark">
+            We&apos;ve sent a 6-digit verification code to your email address.
+          </Body>
+        </Reveal>
       </View>
 
-      <OtpBoxes
-        key={resetKey}
-        onComplete={(c) => {
-          setCode(c);
-          handleVerify(c);
-        }}
-        onChange={(v) => {
-          setComplete(v.every((d) => d !== ''));
-          setCode(v.join(''));
-        }}
-      />
+      <Reveal index={2} spring scaleIn>
+        <OtpBoxes
+          key={resetKey}
+          onComplete={(c) => {
+            setCode(c);
+            handleVerify(c);
+          }}
+          onChange={(v) => {
+            setComplete(v.every((d) => d !== ''));
+            setCode(v.join(''));
+          }}
+        />
+      </Reveal>
 
-      <PrimaryButton
-        label={verifying ? 'Verifying…' : 'Verify'}
-        disabled={!complete || verifying}
-        onPress={() => handleVerify()}
-        className="mt-8"
-      />
+      <Reveal index={3}>
+        <PrimaryButton
+          label={verifying ? 'Verifying…' : 'Verify'}
+          disabled={!complete || verifying}
+          onPress={() => handleVerify()}
+          className="mt-8"
+        />
+      </Reveal>
 
-      <View className="flex-row justify-center mt-6">
+      <Reveal index={4} className="flex-row justify-center mt-6">
         <Body>Didn&apos;t receive the code? </Body>
         <Pressable disabled={seconds > 0} onPress={handleResend}>
           <BodyMedium className={seconds > 0 ? 'text-text-secondary dark:text-text-secondary-dark' : 'text-primary'}>
@@ -109,7 +118,7 @@ export default function Otp() {
               : 'Resend OTP'}
           </BodyMedium>
         </Pressable>
-      </View>
+      </Reveal>
     </Screen>
   );
 }

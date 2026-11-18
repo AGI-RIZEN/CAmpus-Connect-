@@ -8,6 +8,7 @@ import { Header } from '@/components/ui/Header';
 import { Card } from '@/components/ui/Card';
 import { PrimaryButton } from '@/components/ui/Button';
 import { Body, Caption } from '@/components/ui/Text';
+import { Reveal } from '@/components/ui/Reveal';
 import { useToast } from '@/components/ui/Toast';
 import { haptic } from '@/lib/haptics';
 import { colors } from '@/lib/theme';
@@ -93,7 +94,7 @@ export default function CreatePostScreen() {
               className="rounded-input overflow-hidden bg-card-lavender dark:bg-card-lavender-dark items-center justify-center"
             >
               {asset ? (
-                <>
+                <Reveal key={asset.uri} spring scaleIn style={{ width: '100%', height: '100%' }}>
                   <Image source={{ uri: asset.uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                   <Pressable
                     onPress={() => removeImage(asset.uri)}
@@ -102,7 +103,7 @@ export default function CreatePostScreen() {
                   >
                     <X size={12} color="#fff" />
                   </Pressable>
-                </>
+                </Reveal>
               ) : (
                 <Pressable onPress={addImage} className="w-full h-full items-center justify-center">
                   <ImagePlus size={20} color={colors.primary} />
@@ -114,11 +115,11 @@ export default function CreatePostScreen() {
       </View>
 
       {selected.length > 0 && (
-        <View className="mt-4">
+        <Reveal spring className="mt-4">
           <Caption className="mb-2">Selected ({selected.length}/{MAX_IMAGES})</Caption>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {selected.map((asset) => (
-              <View key={asset.uri} style={{ width: 72, height: 72 }} className="mr-3">
+            {selected.map((asset, i) => (
+              <Reveal key={asset.uri} index={i} step={50} spring scaleIn style={{ width: 72, height: 72 }} className="mr-3">
                 <Image source={{ uri: asset.uri }} style={{ width: '100%', height: '100%', borderRadius: 16 }} resizeMode="cover" />
                 <Pressable
                   onPress={() => removeImage(asset.uri)}
@@ -127,10 +128,10 @@ export default function CreatePostScreen() {
                 >
                   <X size={12} color="#fff" />
                 </Pressable>
-              </View>
+              </Reveal>
             ))}
           </ScrollView>
-        </View>
+        </Reveal>
       )}
 
       <View className="mt-5">

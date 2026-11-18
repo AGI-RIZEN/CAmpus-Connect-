@@ -5,13 +5,14 @@ import { Screen } from '@/components/ui/Screen';
 import { Header } from '@/components/ui/Header';
 import { Badge, statusTone } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { OfflineState } from '@/components/ui/OfflineState';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Reveal } from '@/components/ui/Reveal';
 import { useToast } from '@/components/ui/Toast';
 import { useFakeRefresh } from '@/lib/hooks';
 import { colors } from '@/lib/theme';
 import { listMyPosts, type Post } from '@/lib/api/posts';
-import { ApiRequestError } from '@/lib/api/client';
+import { ApiRequestError, isNetworkError } from '@/lib/api/client';
 
 const COLUMNS = 3;
 const GAP = 8;
@@ -20,6 +21,7 @@ export default function MyPostsScreen() {
   const toast = useToast();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [offline, setOffline] = useState(false);
   const [gridWidth, setGridWidth] = useState(0);
   const tileSize = gridWidth > 0 ? (gridWidth - GAP * (COLUMNS - 1)) / COLUMNS : 0;
   const { refreshing, onRefresh } = useFakeRefresh();
@@ -28,13 +30,23 @@ export default function MyPostsScreen() {
     try {
       const result = await listMyPosts();
       setPosts(result);
+      setOffline(false);
     } catch (err) {
+      if (isNetworkError(err)) {
+        setOffline(true);
+        return;
+      }
       const message = err instanceof ApiRequestError ? err.message : 'Could not load your posts';
       toast(message, 'error');
     } finally {
       setLoading(false);
     }
   }, []);
+
+  const retry = useCallback(() => {
+    setLoading(true);
+    load();
+  }, [load]);
 
   useEffect(() => {
     load();
@@ -51,12 +63,16 @@ export default function MyPostsScreen() {
     <Screen refreshing={refreshing} onRefresh={onRefresh}>
       <Header title="My Posts" />
 
-      {!loading && posts.length === 0 ? (
-        <EmptyState
-          icon={<Images size={32} color={colors.primary} />}
-          title="No posts yet"
-          description="Posts you share will show up here while they're pending, approved, or rejected."
-        />
+      {!loading && offline ? (
+        <OfflineState onRetry={retry} />
+      ) : !loading && posts.length === 0 ? (
+        <Reveal spring scaleIn>
+          <EmptyState
+            icon={<Images size={32} color={colors.primary} />}
+            title="No posts yet"
+            description="Posts you share will show up here while they're pending, approved, or rejected."
+          />
+        </Reveal>
       ) : (
         <View
           className="flex-row flex-wrap"
@@ -68,7 +84,7 @@ export default function MyPostsScreen() {
                 <Skeleton key={i} width={tileSize || '30%'} height={tileSize} radius={16} />
               ))
             : posts.map((post, i) => (
-                <Reveal key={post.id} index={i} step={40}>
+                <Reveal key={post.id} index={i} step={40} spring scaleIn>
                   <Pressable
                     onPress={() => toast(describeStatus(post), post.status === 'Rejected' ? 'error' : 'info')}
                     style={{ width: tileSize, height: tileSize }}

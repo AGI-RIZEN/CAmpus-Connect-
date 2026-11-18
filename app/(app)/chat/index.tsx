@@ -9,13 +9,14 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Chip } from '@/components/ui/Chip';
 import { AnimatedPressable } from '@/components/ui/AnimatedPressable';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { OfflineState } from '@/components/ui/OfflineState';
 import { Reveal } from '@/components/ui/Reveal';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useFakeRefresh } from '@/lib/hooks';
 import { useToast } from '@/components/ui/Toast';
 import { colors } from '@/lib/theme';
 import { listMyGroups, type GroupSummary } from '@/lib/api/chat';
-import { ApiRequestError } from '@/lib/api/client';
+import { ApiRequestError, isNetworkError } from '@/lib/api/client';
 import { timeAgo } from '@/lib/time';
 
 type Tab = 'community' | 'groups';
@@ -30,13 +31,20 @@ export default function ChatHomeScreen() {
   const [tab, setTab] = useState<Tab>('groups');
   const [groupsList, setGroupsList] = useState<GroupSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [offline, setOffline] = useState(false);
   const { refreshing, onRefresh } = useFakeRefresh();
 
   const load = useCallback(async () => {
     try {
       const result = await listMyGroups();
       setGroupsList(result);
+      setOffline(false);
     } catch (err) {
+      if (isNetworkError(err)) {
+        // Device can't reach the server at all — show the offline state instead of a toast.
+        setOffline(true);
+        return;
+      }
       const message = err instanceof ApiRequestError ? err.message : 'Could not load your chats';
       toast(message, 'error');
     } finally {
@@ -78,11 +86,13 @@ export default function ChatHomeScreen() {
             </View>
           ))}
         </>
+      ) : offline ? (
+        <OfflineState onRetry={load} />
       ) : (
         <>
           {/* Community card — always shown */}
           {community && (
-            <Reveal index={0}>
+            <Reveal index={0} spring scaleIn>
               <AnimatedPressable onPress={() => router.push('/(app)/chat/community')}>
                 <Card tone="lavender" className="flex-row items-center mb-6">
                   <View className="w-14 h-14 rounded-full bg-primary items-center justify-center">
@@ -121,7 +131,7 @@ export default function ChatHomeScreen() {
                 />
               ) : (
                 myGroups.map((group, i) => (
-                  <Reveal key={group.id} index={i + 1}>
+                  <Reveal key={group.id} index={i + 1} spring>
                     <AnimatedPressable
                       onPress={() => router.push(`/(app)/chat/group/${group.id}`)}
                       className="flex-row items-center mb-4"

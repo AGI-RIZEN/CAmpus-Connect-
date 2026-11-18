@@ -338,7 +338,7 @@ export async function listOpenReports() {
         id: post.id,
         caption: post.caption,
         author: { id: post.author.id, fullName: post.author.fullName, avatarUrl: post.author.avatarAsset?.secureUrl ?? null },
-        image: post.images[0]?.asset.secureUrl ?? null,
+        image: [...post.images].sort((a, b) => a.position - b.position)[0]?.asset.secureUrl ?? null,
       },
       reportedByCount: reportsForPost.length,
       reasons: [...new Set(reportsForPost.map((r) => r.reason))],

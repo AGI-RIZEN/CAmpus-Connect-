@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { validateBody } from '../../middleware/validate';
 import { asyncHandler } from '../../middleware/asyncHandler';
-import { requireAuth } from '../../middleware/auth';
+import { requireAuth, requireAuthAnyStatus } from '../../middleware/auth';
 import {
   signupSchema,
   otpVerifySchema,
@@ -55,7 +55,7 @@ authRouter.post(
 
 authRouter.get(
   '/me/status',
-  requireAuth,
+  requireAuthAnyStatus,
   asyncHandler(async (req, res) => {
     const result = await authService.getStatus(req.user!.id);
     res.json(result);

@@ -303,3 +303,25 @@ export async function listAllGroups() {
     createdAt: c.createdAt,
   }));
 }
+
+export async function deleteGroup(groupChatId: string) {
+  const group = await prisma.groupChat.findUnique({ where: { id: groupChatId } });
+  if (!group) throw new ApiError(404, 'Group not found');
+  if (group.isCommunity) throw new ApiError(403, "The community chat can't be deleted");
+
+  // Messages/memberships cascade automatically (schema.prisma), but a Message -> Poll isn't a
+  // cascading relation in that direction — deleting the message doesn't delete the poll it
+  // pointed at, so without this it'd be left behind as an orphaned row. Collect those polls
+  // before the group (and its messages) disappear, then clean them up right after.
+  const orphanedPollIds = (
+    await prisma.message.findMany({
+      where: { groupChatId, pollId: { not: null } },
+      select: { pollId: true },
+    })
+  ).map((m) => m.pollId as string);
+
+  await prisma.$transaction([
+    prisma.groupChat.delete({ where: { id: groupChatId } }),
+    ...(orphanedPollIds.length > 0 ? [prisma.poll.deleteMany({ where: { id: { in: orphanedPollIds } } })] : []),
+  ]);
+}

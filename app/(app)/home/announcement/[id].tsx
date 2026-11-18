@@ -11,6 +11,7 @@ import { H1, Body, BodyMedium, Caption } from '@/components/ui/Text';
 import { Reveal } from '@/components/ui/Reveal';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { AnimatedPressable } from '@/components/ui/AnimatedPressable';
+import { AttentionPulse } from '@/components/screens/notices/AttentionPulse';
 import { useToast } from '@/components/ui/Toast';
 import { colors } from '@/lib/theme';
 import { getNotice, markNoticeRead, type Notice, type NoticeCategory } from '@/lib/api/notices';
@@ -68,10 +69,16 @@ export default function AnnouncementDetailScreen() {
     <Screen>
       <Header title="Announcement" />
 
-      <Reveal index={0}>
-        <Badge label={notice.category} tone={badgeTone[notice.category]} />
+      {/* Hero (category + title) scales in with a spring; the byline and body follow on later
+          beats so the eye lands on the title first. */}
+      <Reveal index={0} spring scaleIn>
+        <AttentionPulse active={notice.category === 'Urgent'} delay={520}>
+          <Badge label={notice.category} tone={badgeTone[notice.category]} />
+        </AttentionPulse>
         <H1 className="mt-3">{notice.title}</H1>
+      </Reveal>
 
+      <Reveal index={1}>
         <View className="flex-row items-center mt-4">
           <Avatar uri={notice.author.avatarUrl} name={notice.author.fullName} size={36} />
           <View className="ml-3">
@@ -79,15 +86,17 @@ export default function AnnouncementDetailScreen() {
             <Caption className="mt-0.5">{formatDate(notice.createdAt)}</Caption>
           </View>
         </View>
+      </Reveal>
 
+      <Reveal index={2}>
         <Body className="mt-5" style={{ lineHeight: 24 }}>
           {notice.body}
         </Body>
       </Reveal>
 
       {notice.attachment && (
-        <Reveal index={1} className="mt-5">
-          <AnimatedPressable haptics="tap" onPress={() => Linking.openURL(notice.attachment!.url)}>
+        <Reveal index={3} spring className="mt-5">
+          <AnimatedPressable haptics="tap" scaleTo={0.98} onPress={() => Linking.openURL(notice.attachment!.url)}>
             <Card tone="white" className="flex-row items-center">
               <View className="w-11 h-11 rounded-full bg-card-lavender dark:bg-card-lavender-dark items-center justify-center">
                 <FileText size={20} color={colors.primary} />
@@ -102,7 +111,7 @@ export default function AnnouncementDetailScreen() {
         </Reveal>
       )}
 
-      <Reveal index={2}>
+      <Reveal index={4}>
         <View className="flex-row items-center mt-8">
           <CheckCheck size={16} color={colors.success} />
           <Caption className="ml-1.5">Seen by you</Caption>

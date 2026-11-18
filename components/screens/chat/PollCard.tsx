@@ -1,7 +1,9 @@
 import React, { useEffect } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Check } from 'lucide-react-native';
+import { AnimatedPressable } from '@/components/ui/AnimatedPressable';
+import { Reveal } from '@/components/ui/Reveal';
 import { BodyMedium, Caption, H2 } from '@/components/ui/Text';
 import { colors } from '@/lib/theme';
 import { timeLeftLabel } from '@/lib/time';
@@ -17,7 +19,10 @@ type Props = {
   onVote?: (optionId: string) => void;
 };
 
-/** One poll option bar — fill eases from 0 to `pct` on mount instead of snapping to width instantly. */
+/**
+ * One poll option bar — fill eases from 0 to `pct` on mount, and re-eases to the new width
+ * whenever `pct` changes (i.e. after a vote) instead of snapping, so results feel alive.
+ */
 function PollOptionBar({
   opt,
   mine,
@@ -42,22 +47,30 @@ function PollOptionBar({
   const fillStyle = useAnimatedStyle(() => ({ width: `${fill.value}%` }));
 
   return (
-    <Pressable
+    // Tappable bars get the app-wide press-scale + a light "select" tick; when there is no
+    // onPress (closed poll / read-only) the Pressable is disabled so nothing animates.
+    <AnimatedPressable
       disabled={!onPress}
       onPress={onPress}
+      scaleTo={0.97}
+      haptics="select"
       className={`h-9 rounded-full overflow-hidden mb-2 justify-center ${trackClass} ${mine ? 'border-2 border-primary' : ''}`}
     >
       <Animated.View className={`absolute left-0 top-0 bottom-0 rounded-full ${fillClass}`} style={fillStyle} />
       <View className="flex-row items-center justify-between px-3.5">
         <View className="flex-row items-center">
-          {mine && <Check size={12} color={colors.primary} style={{ marginRight: 4 }} />}
+          {mine && (
+            <Reveal spring scaleIn step={0}>
+              <Check size={12} color={colors.primary} style={{ marginRight: 4 }} />
+            </Reveal>
+          )}
           <Caption className={`font-poppins-semibold ${labelClass}`} numberOfLines={1}>
             {opt.label}
           </Caption>
         </View>
         <Caption className={`font-poppins-semibold ${labelClass}`}>{opt.pct}%</Caption>
       </View>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -98,10 +111,11 @@ export function PollCard({ poll, large, inverted, className = '', onVote }: Prop
           <Caption className={labelClass}>{timeLeftLabel(poll.closesAt)}</Caption>
         </View>
         {poll.myVote && (
-          <View className="flex-row items-center">
+          // Mounts the moment myVote lands, so the badge springs in alongside the bar re-fill.
+          <Reveal spring scaleIn className="flex-row items-center">
             <Check size={12} color={inverted ? '#fff' : colors.primary} />
             <Caption className={`ml-1 ${inverted ? 'text-white' : 'text-primary'}`}>You voted</Caption>
-          </View>
+          </Reveal>
         )}
       </View>
     </View>

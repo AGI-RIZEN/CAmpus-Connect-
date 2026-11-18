@@ -2,35 +2,35 @@
 // contexts that need raw values (icon colors, gradients, chart fills, RN shadow props).
 
 export const colors = {
-  background: '#F6F5FA',
-  backgroundDark: '#0F0E14',
+  background: '#F6F7FB',
+  backgroundDark: '#0E1116',
   surface: '#FFFFFF',
-  surfaceDark: '#1C1B24',
-  primary: '#7C5CFA',
-  primaryDark: '#9478FF',
-  ink: '#16151C',
-  textPrimary: '#16151C',
-  textSecondary: '#6B6A75',
-  textPrimaryDark: '#F5F4FA',
-  textSecondaryDark: '#A6A4B3',
+  surfaceDark: '#171B22',
+  primary: '#2F6FED',
+  primaryDark: '#5B8DFF',
+  ink: '#101828',
+  textPrimary: '#101828',
+  textSecondary: '#5B6472',
+  textPrimaryDark: '#F2F4F8',
+  textSecondaryDark: '#9AA3B2',
   success: '#22C55E',
   warning: '#F59E0B',
   danger: '#EF4444',
-  borderLight: '#ECEAF4',
-  borderDark: '#2A2933',
+  borderLight: '#E4E7EE',
+  borderDark: '#242A33',
   card: {
-    lavender: '#E9E3FF',
-    mint: '#DDF1EA',
-    butter: '#FFF1C7',
-    peach: '#FFE4D6',
-    sky: '#DCEBFF',
+    lavender: '#E3E8F5',
+    mint: '#DCEEEA',
+    butter: '#F5ECD7',
+    peach: '#F5E2DC',
+    sky: '#DCEAF8',
   },
   cardDark: {
-    lavender: '#2C2B36',
-    mint: '#2B2C34',
-    butter: '#2E2C31',
-    peach: '#2E2B32',
-    sky: '#2B2C36',
+    lavender: '#222838',
+    mint: '#1E2A29',
+    butter: '#2A2721',
+    peach: '#2A221F',
+    sky: '#1E2733',
   },
 } as const;
 
@@ -46,7 +46,7 @@ export const cardToneClasses: Record<CardTone, string> = {
 
 // Soft shadow: 0 8 24, 6% opacity — RN needs discrete shadow* props (iOS) + elevation (Android).
 export const softShadow = {
-  shadowColor: '#16151C',
+  shadowColor: '#101828',
   shadowOffset: { width: 0, height: 8 },
   shadowOpacity: 0.06,
   shadowRadius: 24,
@@ -54,7 +54,7 @@ export const softShadow = {
 } as const;
 
 export const softShadowLg = {
-  shadowColor: '#16151C',
+  shadowColor: '#101828',
   shadowOffset: { width: 0, height: 12 },
   shadowOpacity: 0.1,
   shadowRadius: 32,

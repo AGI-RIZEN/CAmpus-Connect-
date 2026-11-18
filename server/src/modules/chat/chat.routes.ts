@@ -35,6 +35,15 @@ chatRouter.post(
   })
 );
 
+chatRouter.delete(
+  '/admin/groups/:id',
+  requireRole('Admin'),
+  asyncHandler(async (req, res) => {
+    await chatService.deleteGroup(req.params.id);
+    res.json({ message: 'Group deleted' });
+  })
+);
+
 chatRouter.get(
   '/groups/:id',
   asyncHandler(async (req, res) => {

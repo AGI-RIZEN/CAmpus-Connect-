@@ -31,6 +31,10 @@ export const submitQuizSchema = z.object({
       z.object({
         questionId: z.string(),
         selectedIndex: z.number().int().min(0).max(3).nullable(),
+        // Seconds left on that question's countdown when it was answered — drives the speed
+        // bonus in submitAttempt(). Optional/clamped server-side, so an older client or a
+        // missing value just scores as if no time was left (base points only, no bonus).
+        secondsRemaining: z.number().min(0).max(3600).optional(),
       })
     )
     .min(1),

@@ -11,18 +11,19 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Badge, statusTone } from '@/components/ui/Badge';
 import { BodyMedium, Caption } from '@/components/ui/Text';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { OfflineState } from '@/components/ui/OfflineState';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Reveal } from '@/components/ui/Reveal';
 import { useToast } from '@/components/ui/Toast';
 import { ReasonSheet } from '@/components/screens/admin/ReasonSheet';
 import { haptic } from '@/lib/haptics';
 import * as adminApi from '@/lib/api/admin';
-import { ApiRequestError } from '@/lib/api/client';
+import { ApiRequestError, isNetworkError } from '@/lib/api/client';
 
-type RoleFilter = 'All' | 'Student' | 'Teacher' | 'Admin';
+type RoleFilter = 'All' | 'Student' | 'Teacher' | 'Admin' | 'Alumni';
 type StatusFilter = 'All' | 'Active' | 'PendingApproval' | 'Rejected' | 'Banned';
 
-const roles: RoleFilter[] = ['All', 'Student', 'Teacher', 'Admin'];
+const roles: RoleFilter[] = ['All', 'Student', 'Teacher', 'Admin', 'Alumni'];
 const statuses: StatusFilter[] = ['All', 'Active', 'PendingApproval', 'Rejected', 'Banned'];
 const statusLabel: Record<StatusFilter, string> = {
   All: 'All',
@@ -39,6 +40,7 @@ export default function UserManagementScreen() {
 
   const [users, setUsers] = useState<adminApi.AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [offline, setOffline] = useState(false);
   const [search, setSearch] = useState('');
   const [role, setRole] = useState<RoleFilter>((params.role as RoleFilter) || 'All');
   const [status, setStatus] = useState<StatusFilter>((params.status as StatusFilter) || 'All');
@@ -58,7 +60,12 @@ export default function UserManagementScreen() {
           activeToday: activeToday || undefined,
         });
         setUsers(result);
+        setOffline(false);
       } catch (err) {
+        if (isNetworkError(err)) {
+          setOffline(true);
+          return;
+        }
         const message = err instanceof ApiRequestError ? err.message : 'Could not load users';
         toast(message, 'error');
       } finally {
@@ -129,9 +136,11 @@ export default function UserManagementScreen() {
           <Skeleton height={76} radius={28} className="mb-3" />
           <Skeleton height={76} radius={28} className="mb-3" />
         </>
+      ) : offline ? (
+        <OfflineState onRetry={() => loadUsers(search, role, status)} />
       ) : users.length === 0 ? (
         <EmptyState
-          icon={<UsersIcon size={32} color="#7C5CFA" />}
+          icon={<UsersIcon size={32} color="#2F6FED" />}
           title="No users found"
           description="Try a different search term or filter."
         />
@@ -144,14 +153,14 @@ export default function UserManagementScreen() {
                 <BodyMedium numberOfLines={1}>{u.fullName}</BodyMedium>
                 <Caption className="mt-0.5">{u.course ?? u.role}</Caption>
                 <View className="flex-row mt-1.5">
-                  <Badge label={u.status} tone={statusTone(u.status as any)} />
+                  <Badge label={u.status} tone={statusTone(u.status)} />
                 </View>
               </View>
               {u.status === 'Banned' ? (
                 <Pressable onPress={() => handleUnban(u)} className="rounded-full px-4 py-2 bg-success">
                   <Caption className="text-white font-poppins-semibold">Unban</Caption>
                 </Pressable>
-              ) : u.role !== 'Admin' ? (
+              ) : u.status === 'Active' && u.role !== 'Admin' ? (
                 <Pressable onPress={() => setBanTarget(u)} className="rounded-full px-4 py-2 bg-danger">
                   <Caption className="text-white font-poppins-semibold">Ban</Caption>
                 </Pressable>

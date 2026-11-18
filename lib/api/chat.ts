@@ -82,3 +82,7 @@ export async function listAllGroups(): Promise<AdminGroup[]> {
 export async function createGroup(input: { name: string; memberIds: string[]; iconAssetId?: string }): Promise<AdminGroup> {
   return apiRequest('/chat/admin/groups', { method: 'POST', body: input, auth: true });
 }
+
+export async function deleteGroup(id: string): Promise<void> {
+  await apiRequest(`/chat/admin/groups/${id}`, { method: 'DELETE', auth: true });
+}

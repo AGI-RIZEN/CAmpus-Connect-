@@ -81,7 +81,7 @@ export default function ProfileScreen() {
       {/* Cover gradient */}
       <View className="relative">
         <LinearGradient
-          colors={[colors.primary, '#6342E8']}
+          colors={[colors.primary, '#1E4FBA']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{ height: 150, borderBottomLeftRadius: 28, borderBottomRightRadius: 28 }}

@@ -8,12 +8,14 @@ import { IconButton } from '@/components/ui/IconButton';
 import { BodyMedium, Caption, H2 } from '@/components/ui/Text';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { OfflineState } from '@/components/ui/OfflineState';
 import { Reveal } from '@/components/ui/Reveal';
+import { GradientBlob } from '@/components/ui/GradientBlob';
 import { useFakeRefresh } from '@/lib/hooks';
 import { colors } from '@/lib/theme';
 import { useToast } from '@/components/ui/Toast';
 import { listFeed, type FeedScope, type Post } from '@/lib/api/posts';
-import { ApiRequestError } from '@/lib/api/client';
+import { ApiRequestError, isNetworkError } from '@/lib/api/client';
 import { PostCard } from '@/components/screens/feed/PostCard';
 
 const TABS: { key: FeedScope; label: string }[] = [
@@ -27,19 +29,30 @@ export default function FeedScreen() {
   const [activeTab, setActiveTab] = useState<FeedScope>('forYou');
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [offline, setOffline] = useState(false);
   const { refreshing, onRefresh } = useFakeRefresh();
 
   const load = useCallback(async () => {
     try {
       const result = await listFeed(activeTab);
       setPosts(result);
+      setOffline(false);
     } catch (err) {
+      if (isNetworkError(err)) {
+        setOffline(true);
+        return;
+      }
       const message = err instanceof ApiRequestError ? err.message : 'Could not load the feed';
       toast(message, 'error');
     } finally {
       setLoading(false);
     }
   }, [activeTab]);
+
+  const retry = useCallback(() => {
+    setLoading(true);
+    load();
+  }, [load]);
 
   useEffect(() => {
     setLoading(true);
@@ -87,15 +100,25 @@ export default function FeedScreen() {
           <View className="mb-4" />
           <SkeletonCard />
         </>
+      ) : offline ? (
+        <OfflineState onRetry={retry} />
       ) : posts.length === 0 ? (
-        <EmptyState
-          icon={<Rss size={32} color={colors.primary} />}
-          title="No posts yet"
-          description="Approved posts from your campus will show up here."
-        />
+        <Reveal spring scaleIn className="rounded-card overflow-hidden" style={{ position: 'relative' }}>
+          <GradientBlob
+            blobs={[
+              { size: 220, top: -40, left: -70, colors: ['#2F6FED33', '#2F6FED00'], driftRange: 16, duration: 6500 },
+              { size: 180, bottom: -50, right: -60, colors: ['#5B8DFF2E', '#5B8DFF00'], driftRange: 20, duration: 7800 },
+            ]}
+          />
+          <EmptyState
+            icon={<Rss size={32} color={colors.primary} />}
+            title="No posts yet"
+            description="Approved posts from your campus will show up here."
+          />
+        </Reveal>
       ) : (
         posts.map((post, i) => (
-          <Reveal key={post.id} index={i}>
+          <Reveal key={post.id} index={i} spring>
             <PostCard post={post} />
           </Reveal>
         ))
